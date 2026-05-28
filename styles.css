@@ -618,7 +618,7 @@ main {
 
 .result--spread .card__label-name {
   display: block;
-  font-size: clamp(0.4rem, calc(var(--card-w, 56px) * 0.155), 0.78rem);
+  font-size: clamp(0.4rem, calc(var(--card-w, 56px) * 0.155), 1rem);
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
@@ -629,7 +629,7 @@ main {
 .result--spread .card__label-dir {
   display: block;
   margin-top: 0.1em;
-  font-size: clamp(0.34rem, calc(var(--card-w, 56px) * 0.13), 0.65rem);
+  font-size: clamp(0.34rem, calc(var(--card-w, 56px) * 0.13), 0.8rem);
   font-weight: 500;
   color: var(--text-muted);
 }
@@ -644,7 +644,7 @@ main {
 }
 
 .result--spread .card__keyword {
-  font-size: clamp(0.42rem, calc(var(--card-w, 56px) * 0.15), 0.8rem);
+  font-size: clamp(0.42rem, calc(var(--card-w, 56px) * 0.15), 1rem);
 }
 
 @keyframes spreadCardEnter {

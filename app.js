@@ -8,12 +8,16 @@ const MIN_COUNT = 1;
 const MAX_COUNT = CARDS.length; // 78 — 덱 크기가 자연 상한
 const GRID_PX = 36; // 그리드 한 칸 크기 (정사각형, px)
 
-// 카드 크기 범위 (px) — 장수에 따라 이 사이에서 유동 조정
-const CARD_W_MAX = 56;
-const CARD_W_MIN = 28;
+// 카드 크기: 매트 크기 대비 비율로 계산 (장수에 따라 유동)
+const CARD_F_MAX = 0.13; // 적은 장수일 때 매트 변의 비율
+const CARD_F_MIN = 0.05; // 많은 장수일 때
+const CARD_W_FLOOR = 34; // 최소 px
+const CARD_W_CEIL = 150; // 최대 px
 const COUNT_LO = 4; // 이하면 최대 크기
 const COUNT_HI = 24; // 이상이면 최소 크기
 const CARD_RATIO = 1.7; // 세로 / 가로
+
+const HISTORY_LIMIT = 50;
 
 const el = {
   drawBtn: document.getElementById('draw-btn'),
@@ -29,8 +33,11 @@ const el = {
 let hasDrawn = false;
 let positions = []; // [{x, y, reversed?}] — 퍼센트 좌표
 let selectedIndex = -1; // 현재 선택된 마커 인덱스
-let cardW = CARD_W_MAX; // 현재 카드 너비 (px)
+let cardW = 56; // 현재 카드 너비 (px)
 let cardH = cardW * CARD_RATIO;
+
+let history = []; // undo 스택 (positions 스냅샷)
+let future = []; // redo 스택
 
 /* ---------- Helpers ---------- */
 
@@ -44,23 +51,22 @@ function getMatSize() {
   };
 }
 
-// 카드 수 + 매트 너비에 따라 카드 크기를 정하고 CSS 변수로 반영
+// 카드 수 + 매트 크기에 따라 카드 크기를 정하고 CSS 변수로 반영
 function applyCardSize() {
   const count = getCount();
-  const { width } = getMatSize();
+  const { width, height } = getMatSize();
+  const side = Math.min(width, height); // 매트는 1:1
 
   const t = clamp((count - COUNT_LO) / (COUNT_HI - COUNT_LO), 0, 1);
-  let w = CARD_W_MAX - t * (CARD_W_MAX - CARD_W_MIN);
-  w = clamp(Math.min(w, width / 6), CARD_W_MIN, CARD_W_MAX);
-
-  cardW = w;
-  cardH = w * CARD_RATIO;
+  const factor = CARD_F_MAX - t * (CARD_F_MAX - CARD_F_MIN);
+  cardW = clamp(side * factor, CARD_W_FLOOR, CARD_W_CEIL);
+  cardH = cardW * CARD_RATIO;
 
   // 작은 카드일수록 호버 확대 배율을 키워 가독성 확보
-  const hoverScale = clamp(130 / cardW, 1.5, 4.5);
+  const hoverScale = clamp(150 / cardW, 1.4, 4.5);
 
   [el.spreadMat, el.result].forEach(node => {
-    node.style.setProperty('--card-w', cardW + 'px');
+    node.style.setProperty('--card-w', cardW.toFixed(1) + 'px');
     node.style.setProperty('--hover-scale', hoverScale.toFixed(2));
   });
 }
@@ -103,6 +109,30 @@ const getDirectionMode = () =>
 
 const isSpreadMode = () => el.spreadToggle.checked;
 
+/* ---------- Undo / Redo ---------- */
+
+const snapshot = () => positions.map(p => ({ ...p }));
+
+function pushHistory() {
+  history.push(snapshot());
+  if (history.length > HISTORY_LIMIT) history.shift();
+  future = [];
+}
+
+function undo() {
+  if (history.length === 0) return;
+  future.push(snapshot());
+  positions = history.pop();
+  renderSpreadEditor({ keepHistory: true });
+}
+
+function redo() {
+  if (future.length === 0) return;
+  history.push(snapshot());
+  positions = future.pop();
+  renderSpreadEditor({ keepHistory: true });
+}
+
 /* ---------- Spread Editor ---------- */
 
 function defaultPositions(count) {
@@ -118,7 +148,7 @@ function syncPositions(count) {
   positions = Array.from({ length: count }, (_, i) => positions[i] || defaults[i]);
 }
 
-function renderSpreadEditor() {
+function renderSpreadEditor(opts = {}) {
   const count = getCount();
   applyCardSize();
   syncPositions(count);
@@ -174,25 +204,41 @@ function attachDrag(marker) {
       offsetX: e.clientX - (markerRect.left + markerRect.width / 2),
       offsetY: e.clientY - (markerRect.top + markerRect.height / 2),
       matRect,
+      before: snapshot(),
+      moved: false,
     };
     marker.classList.add('dragging');
   });
 
-  // 드래그는 스냅 없이 자유 배치 (경계만 제한)
+  // 드래그는 기본 그리드 스냅, Alt를 누르면 자유 배치
   marker.addEventListener('pointermove', e => {
     if (!drag) return;
     const rawX =
       ((e.clientX - drag.offsetX - drag.matRect.left) / drag.matRect.width) * 100;
     const rawY =
       ((e.clientY - drag.offsetY - drag.matRect.top) / drag.matRect.height) * 100;
-    const { x, y } = clampToBounds(rawX, rawY, drag.matRect.width, drag.matRect.height);
-    positions[index] = { ...positions[index], x, y };
-    marker.style.left = x + '%';
-    marker.style.top = y + '%';
+
+    let x = rawX;
+    let y = rawY;
+    if (!e.altKey) {
+      x = snapPercent(rawX, drag.matRect.width);
+      y = snapPercent(rawY, drag.matRect.height);
+    }
+    const b = clampToBounds(x, y, drag.matRect.width, drag.matRect.height);
+
+    if (b.x !== positions[index].x || b.y !== positions[index].y) drag.moved = true;
+    positions[index] = { ...positions[index], x: b.x, y: b.y };
+    marker.style.left = b.x + '%';
+    marker.style.top = b.y + '%';
   });
 
   const endDrag = e => {
     if (!drag) return;
+    if (drag.moved) {
+      history.push(drag.before);
+      if (history.length > HISTORY_LIMIT) history.shift();
+      future = [];
+    }
     drag = null;
     marker.classList.remove('dragging');
     try {
@@ -222,11 +268,25 @@ function moveSelected(dxCells, dyCells) {
 /* ---------- Keyboard Shortcuts (Spread Mode) ---------- */
 
 document.addEventListener('keydown', e => {
-  if (!isSpreadMode() || selectedIndex < 0) return;
+  if (!isSpreadMode()) return;
   if (el.spreadEditor.classList.contains('collapsed')) return;
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea') return;
 
+  // 실행 취소 / 다시 실행 (선택 여부 무관)
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    if (e.shiftKey) redo();
+    else undo();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+    e.preventDefault();
+    redo();
+    return;
+  }
+
+  if (selectedIndex < 0) return;
   const pos = positions[selectedIndex];
   if (!pos) return;
 
@@ -235,24 +295,28 @@ document.addEventListener('keydown', e => {
 
   switch (e.key) {
     case 'ArrowLeft':
+      pushHistory();
       moveSelected(-cells, 0);
       handled = true;
       break;
     case 'ArrowRight':
+      pushHistory();
       moveSelected(cells, 0);
       handled = true;
       break;
     case 'ArrowUp':
+      pushHistory();
       moveSelected(0, -cells);
       handled = true;
       break;
     case 'ArrowDown':
+      pushHistory();
       moveSelected(0, cells);
       handled = true;
       break;
     case 't':
     case 'T':
-      // Ctrl+T(브라우저 새 탭)도 막아본다 — 브라우저 정책에 따라 불가할 수 있음
+      pushHistory();
       pos.reversed = !pos.reversed;
       handled = true;
       break;
@@ -286,8 +350,6 @@ function drawCards() {
     .slice(0, count)
     .map((card, i) => {
       const pos = spread ? positions[i] : null;
-      // 마커에 명시적 reversed=true가 있으면 무조건 역방향
-      // 그 외엔 양방향 모드면 랜덤, 정방향 모드면 정방향
       const isReversed =
         pos && pos.reversed === true
           ? true
@@ -298,7 +360,6 @@ function drawCards() {
 
   render(drawn, spread);
 
-  // 카드를 뽑으면 편집기를 접는다
   if (spread) setCollapsed(true);
 
   if (!hasDrawn) {
@@ -362,18 +423,25 @@ el.drawBtn.addEventListener('click', drawCards);
 
 el.count.addEventListener('change', () => {
   getCount();
-  if (isSpreadMode()) renderSpreadEditor();
+  if (isSpreadMode()) {
+    history = [];
+    future = [];
+    renderSpreadEditor();
+  }
 });
 
 el.spreadToggle.addEventListener('change', () => {
   el.spreadEditor.hidden = !isSpreadMode();
   if (isSpreadMode()) {
+    history = [];
+    future = [];
     setCollapsed(false);
     renderSpreadEditor();
   }
 });
 
 el.resetSpread.addEventListener('click', () => {
+  pushHistory();
   positions = defaultPositions(getCount());
   renderSpreadEditor();
 });
@@ -381,7 +449,7 @@ el.resetSpread.addEventListener('click', () => {
 el.toggleSpread.addEventListener('click', () => {
   const willExpand = el.spreadEditor.classList.contains('collapsed');
   setCollapsed(!willExpand);
-  if (willExpand) renderSpreadEditor(); // 펼칠 때 정확한 위치로 다시 그림
+  if (willExpand) renderSpreadEditor();
 });
 
 // 매트 바깥 클릭 시 마커 선택 해제
