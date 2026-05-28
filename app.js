@@ -5,7 +5,8 @@
 import { CARDS } from './cards.js';
 
 const MIN_COUNT = 1;
-const MAX_COUNT = 10;
+const MAX_COUNT = CARDS.length; // 78 — 덱 크기가 자연 상한
+const SNAP = 5; // 그리드 스냅 단위 (%)
 
 const el = {
   drawBtn: document.getElementById('draw-btn'),
@@ -18,11 +19,13 @@ const el = {
 };
 
 let hasDrawn = false;
-let positions = []; // [{x, y}] in percent — persistent across draws
+let positions = []; // [{x, y, reversed?}] — 퍼센트 좌표
+let selectedIndex = -1; // 현재 선택된 마커 인덱스
 
 /* ---------- Helpers ---------- */
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+const snap = v => Math.round(v / SNAP) * SNAP;
 
 function shuffle(array) {
   const arr = [...array];
@@ -48,15 +51,13 @@ const isSpreadMode = () => el.spreadToggle.checked;
 /* ---------- Spread Editor ---------- */
 
 function defaultPositions(count) {
-  // Evenly spaced horizontal row, centered vertically
   return Array.from({ length: count }, (_, i) => ({
-    x: (100 / (count + 1)) * (i + 1),
+    x: snap((100 / (count + 1)) * (i + 1)),
     y: 50,
   }));
 }
 
 function syncPositions(count) {
-  // Preserve existing positions, fill new ones with defaults
   const defaults = defaultPositions(count);
   positions = Array.from({ length: count }, (_, i) => positions[i] || defaults[i]);
 }
@@ -68,14 +69,37 @@ function renderSpreadEditor() {
   el.spreadMat.innerHTML = positions
     .map(
       (pos, i) => `
-        <div class="spread-marker" data-i="${i}" style="left:${pos.x}%; top:${pos.y}%">
-          ${i + 1}
+        <div
+          class="spread-marker${pos.reversed ? ' reversed' : ''}"
+          data-i="${i}"
+          style="left:${pos.x}%; top:${pos.y}%"
+          tabindex="0"
+        >
+          <span class="spread-marker__num">${i + 1}</span>
+          <span class="spread-marker__dir" aria-hidden="true">↻</span>
         </div>
       `
     )
     .join('');
 
   el.spreadMat.querySelectorAll('.spread-marker').forEach(attachDrag);
+  selectedIndex = -1;
+}
+
+function selectMarker(idx) {
+  selectedIndex = idx;
+  el.spreadMat.querySelectorAll('.spread-marker').forEach((m, i) => {
+    m.classList.toggle('selected', i === idx);
+  });
+}
+
+function updateMarker(idx) {
+  const marker = el.spreadMat.querySelector(`.spread-marker[data-i="${idx}"]`);
+  if (!marker) return;
+  const pos = positions[idx];
+  marker.style.left = pos.x + '%';
+  marker.style.top = pos.y + '%';
+  marker.classList.toggle('reversed', !!pos.reversed);
 }
 
 function attachDrag(marker) {
@@ -85,6 +109,7 @@ function attachDrag(marker) {
   marker.addEventListener('pointerdown', e => {
     e.preventDefault();
     marker.setPointerCapture(e.pointerId);
+    selectMarker(index);
 
     const matRect = el.spreadMat.getBoundingClientRect();
     const markerRect = marker.getBoundingClientRect();
@@ -98,17 +123,13 @@ function attachDrag(marker) {
 
   marker.addEventListener('pointermove', e => {
     if (!drag) return;
-    const x = clamp(
-      ((e.clientX - drag.offsetX - drag.matRect.left) / drag.matRect.width) * 100,
-      0,
-      100
-    );
-    const y = clamp(
-      ((e.clientY - drag.offsetY - drag.matRect.top) / drag.matRect.height) * 100,
-      0,
-      100
-    );
-    positions[index] = { x, y };
+    const rawX =
+      ((e.clientX - drag.offsetX - drag.matRect.left) / drag.matRect.width) * 100;
+    const rawY =
+      ((e.clientY - drag.offsetY - drag.matRect.top) / drag.matRect.height) * 100;
+    const x = clamp(snap(rawX), 0, 100);
+    const y = clamp(snap(rawY), 0, 100);
+    positions[index] = { ...positions[index], x, y };
     marker.style.left = x + '%';
     marker.style.top = y + '%';
   });
@@ -126,6 +147,52 @@ function attachDrag(marker) {
   marker.addEventListener('pointercancel', endDrag);
 }
 
+/* ---------- Keyboard Shortcuts (Spread Mode) ---------- */
+
+document.addEventListener('keydown', e => {
+  // 스프레드 모드가 아니거나 선택된 마커가 없으면 무시
+  if (!isSpreadMode() || selectedIndex < 0) return;
+  // 입력 필드 포커스 중에는 무시
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea') return;
+
+  const pos = positions[selectedIndex];
+  if (!pos) return;
+
+  const step = e.shiftKey ? SNAP * 2 : SNAP; // 기본 1칸, Shift는 2칸
+  let handled = false;
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      pos.x = clamp(pos.x - step, 0, 100);
+      handled = true;
+      break;
+    case 'ArrowRight':
+      pos.x = clamp(pos.x + step, 0, 100);
+      handled = true;
+      break;
+    case 'ArrowUp':
+      pos.y = clamp(pos.y - step, 0, 100);
+      handled = true;
+      break;
+    case 'ArrowDown':
+      pos.y = clamp(pos.y + step, 0, 100);
+      handled = true;
+      break;
+    case 't':
+    case 'T':
+      // Ctrl+T(브라우저 새 탭)도 막아본다 — 브라우저 정책에 따라 불가할 수 있음
+      pos.reversed = !pos.reversed;
+      handled = true;
+      break;
+  }
+
+  if (handled) {
+    e.preventDefault();
+    updateMarker(selectedIndex);
+  }
+});
+
 /* ---------- Drawing & Rendering ---------- */
 
 function drawCards() {
@@ -137,11 +204,17 @@ function drawCards() {
 
   const drawn = shuffle(CARDS)
     .slice(0, count)
-    .map((card, i) => ({
-      card,
-      isReversed: allowReversed && Math.random() < 0.5,
-      position: spread ? positions[i] : null,
-    }));
+    .map((card, i) => {
+      const pos = spread ? positions[i] : null;
+      // 마커에 명시적 reversed=true가 있으면 무조건 역방향
+      // 그 외엔 양방향 모드면 랜덤, 정방향 모드면 정방향
+      const isReversed =
+        pos && pos.reversed === true
+          ? true
+          : allowReversed && Math.random() < 0.5;
+
+      return { card, isReversed, position: pos };
+    });
 
   render(drawn, spread);
 
@@ -202,4 +275,14 @@ el.spreadToggle.addEventListener('change', () => {
 el.resetSpread.addEventListener('click', () => {
   positions = defaultPositions(getCount());
   renderSpreadEditor();
+});
+
+// 매트 바깥 클릭 시 마커 선택 해제
+document.addEventListener('pointerdown', e => {
+  if (!isSpreadMode() || selectedIndex < 0) return;
+  if (e.target.closest('.spread-marker')) return;
+  selectedIndex = -1;
+  el.spreadMat
+    .querySelectorAll('.spread-marker.selected')
+    .forEach(m => m.classList.remove('selected'));
 });
