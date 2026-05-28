@@ -1,0 +1,486 @@
+/**
+ * 라이더 웨이트 타로 78장 데이터
+ * 이미지: Wikimedia Commons (퍼블릭 도메인, 1909)
+ */
+
+const IMG = name => `https://commons.wikimedia.org/wiki/Special:FilePath/${name}`;
+
+export const CARDS = [
+  // ===== Major Arcana (메이저 아르카나) =====
+  {
+    name: '바보 (The Fool)',
+    image: IMG('RWS_Tarot_00_Fool.jpg'),
+    upright: ['새로운 시작', '순수함', '모험심', '자유'],
+    reversed: ['무모함', '어리석음', '경솔함', '위험'],
+  },
+  {
+    name: '마법사 (The Magician)',
+    image: IMG('RWS_Tarot_01_Magician.jpg'),
+    upright: ['의지력', '창조', '집중', '재능'],
+    reversed: ['속임수', '미숙', '자기기만', '재능 낭비'],
+  },
+  {
+    name: '여사제 (The High Priestess)',
+    image: IMG('RWS_Tarot_02_High_Priestess.jpg'),
+    upright: ['직관', '신비', '내면의 지혜', '무의식'],
+    reversed: ['비밀', '직관 무시', '혼란', '단절'],
+  },
+  {
+    name: '여황제 (The Empress)',
+    image: IMG('RWS_Tarot_03_Empress.jpg'),
+    upright: ['풍요', '모성', '창조성', '자연'],
+    reversed: ['의존', '과보호', '창조성 결여', '공허'],
+  },
+  {
+    name: '황제 (The Emperor)',
+    image: IMG('RWS_Tarot_04_Emperor.jpg'),
+    upright: ['권위', '안정', '리더십', '통제'],
+    reversed: ['폭정', '경직', '통제 상실', '독선'],
+  },
+  {
+    name: '교황 (The Hierophant)',
+    image: IMG('RWS_Tarot_05_Hierophant.jpg'),
+    upright: ['전통', '신념', '가르침', '관습'],
+    reversed: ['반항', '자유로운 사고', '비전통', '독립'],
+  },
+  {
+    name: '연인 (The Lovers)',
+    image: IMG('RWS_Tarot_06_Lovers.jpg'),
+    upright: ['사랑', '조화', '선택', '결합'],
+    reversed: ['불화', '잘못된 선택', '분리', '유혹'],
+  },
+  {
+    name: '전차 (The Chariot)',
+    image: IMG('RWS_Tarot_07_Chariot.jpg'),
+    upright: ['의지', '추진력', '승리', '통제'],
+    reversed: ['방향 상실', '통제 부족', '좌절', '공격성'],
+  },
+  {
+    name: '힘 (Strength)',
+    image: IMG('RWS_Tarot_08_Strength.jpg'),
+    upright: ['용기', '인내', '자제력', '내면의 힘'],
+    reversed: ['약함', '자기 의심', '무력', '불안'],
+  },
+  {
+    name: '은둔자 (The Hermit)',
+    image: IMG('RWS_Tarot_09_Hermit.jpg'),
+    upright: ['성찰', '고독', '내면 탐구', '지혜'],
+    reversed: ['고립', '외로움', '회피', '단절'],
+  },
+  {
+    name: '운명의 수레바퀴 (Wheel of Fortune)',
+    image: IMG('RWS_Tarot_10_Wheel_of_Fortune.jpg'),
+    upright: ['변화', '순환', '운명', '행운'],
+    reversed: ['불운', '정체', '통제 부족', '나쁜 타이밍'],
+  },
+  {
+    name: '정의 (Justice)',
+    image: IMG('RWS_Tarot_11_Justice.jpg'),
+    upright: ['공정', '진실', '균형', '책임'],
+    reversed: ['부정', '불공정', '불균형', '책임 회피'],
+  },
+  {
+    name: '매달린 사람 (The Hanged Man)',
+    image: IMG('RWS_Tarot_12_Hanged_Man.jpg'),
+    upright: ['희생', '새로운 관점', '멈춤', '깨달음'],
+    reversed: ['정체', '무의미한 희생', '지연', '저항'],
+  },
+  {
+    name: '죽음 (Death)',
+    image: IMG('RWS_Tarot_13_Death.jpg'),
+    upright: ['끝', '변화', '전환', '재생'],
+    reversed: ['변화 저항', '정체', '두려움', '집착'],
+  },
+  {
+    name: '절제 (Temperance)',
+    image: IMG('RWS_Tarot_14_Temperance.jpg'),
+    upright: ['균형', '인내', '조화', '절제'],
+    reversed: ['불균형', '과잉', '갈등', '극단'],
+  },
+  {
+    name: '악마 (The Devil)',
+    image: IMG('RWS_Tarot_15_Devil.jpg'),
+    upright: ['속박', '유혹', '중독', '집착'],
+    reversed: ['해방', '자유', '깨달음', '회복'],
+  },
+  {
+    name: '탑 (The Tower)',
+    image: IMG('RWS_Tarot_16_Tower.jpg'),
+    upright: ['갑작스러운 변화', '붕괴', '충격', '진실'],
+    reversed: ['변화 회피', '두려움', '지연된 재난', '저항'],
+  },
+  {
+    name: '별 (The Star)',
+    image: IMG('RWS_Tarot_17_Star.jpg'),
+    upright: ['희망', '영감', '평온', '신뢰'],
+    reversed: ['절망', '신뢰 부족', '낙담', '방향 상실'],
+  },
+  {
+    name: '달 (The Moon)',
+    image: IMG('RWS_Tarot_18_Moon.jpg'),
+    upright: ['환상', '두려움', '무의식', '직관'],
+    reversed: ['진실 발견', '두려움 극복', '명료함', '해소'],
+  },
+  {
+    name: '태양 (The Sun)',
+    image: IMG('RWS_Tarot_19_Sun.jpg'),
+    upright: ['기쁨', '성공', '활력', '긍정'],
+    reversed: ['일시적 슬픔', '지연된 성공', '비관', '낙담'],
+  },
+  {
+    name: '심판 (Judgement)',
+    image: IMG('RWS_Tarot_20_Judgement.jpg'),
+    upright: ['부활', '각성', '부름', '용서'],
+    reversed: ['자기 의심', '후회', '외면', '판단 회피'],
+  },
+  {
+    name: '세계 (The World)',
+    image: IMG('RWS_Tarot_21_World.jpg'),
+    upright: ['완성', '성취', '통합', '여행'],
+    reversed: ['미완성', '지연', '미흡', '닫힘'],
+  },
+
+  // ===== Wands (완드) =====
+  {
+    name: '완드 에이스 (Ace of Wands)',
+    image: IMG('Wands01.jpg'),
+    upright: ['영감', '새로운 기회', '열정', '잠재력'],
+    reversed: ['지연', '에너지 부족', '방향 상실', '동기 결여'],
+  },
+  {
+    name: '완드 2 (Two of Wands)',
+    image: IMG('Wands02.jpg'),
+    upright: ['계획', '결정', '미래 설계', '발견'],
+    reversed: ['두려움', '계획 부족', '망설임', '안전 집착'],
+  },
+  {
+    name: '완드 3 (Three of Wands)',
+    image: IMG('Wands03.jpg'),
+    upright: ['확장', '진보', '비전', '협력'],
+    reversed: ['지연', '좌절', '시야 좁음', '장애물'],
+  },
+  {
+    name: '완드 4 (Four of Wands)',
+    image: IMG('Wands04.jpg'),
+    upright: ['축하', '안정', '가정', '조화'],
+    reversed: ['불안정', '갈등', '전환', '미완성'],
+  },
+  {
+    name: '완드 5 (Five of Wands)',
+    image: IMG('Wands05.jpg'),
+    upright: ['경쟁', '갈등', '도전', '의견 충돌'],
+    reversed: ['갈등 회피', '협력', '내적 갈등', '평화'],
+  },
+  {
+    name: '완드 6 (Six of Wands)',
+    image: IMG('Wands06.jpg'),
+    upright: ['승리', '인정', '성공', '자부심'],
+    reversed: ['자만', '실패', '인정 부족', '배신'],
+  },
+  {
+    name: '완드 7 (Seven of Wands)',
+    image: IMG('Wands07.jpg'),
+    upright: ['방어', '도전 극복', '결단', '신념'],
+    reversed: ['압도됨', '포기', '항복', '소진'],
+  },
+  {
+    name: '완드 8 (Eight of Wands)',
+    image: IMG('Wands08.jpg'),
+    upright: ['빠른 행동', '진전', '소식', '추진'],
+    reversed: ['지연', '좌절', '정체', '오해'],
+  },
+  {
+    name: '완드 9 (Nine of Wands)',
+    image: IMG('Wands09.jpg'),
+    upright: ['회복력', '인내', '마지막 도전', '경계'],
+    reversed: ['소진', '포기', '편집증', '방어 과잉'],
+  },
+  {
+    name: '완드 10 (Ten of Wands)',
+    image: IMG('Wands10.jpg'),
+    upright: ['부담', '책임', '무거움', '과로'],
+    reversed: ['책임 회피', '해방', '위임', '내려놓기'],
+  },
+  {
+    name: '완드 시종 (Page of Wands)',
+    image: IMG('Wands11.jpg'),
+    upright: ['탐험', '열정', '자유로운 영혼', '발견'],
+    reversed: ['미성숙', '무모함', '지연', '나쁜 소식'],
+  },
+  {
+    name: '완드 기사 (Knight of Wands)',
+    image: IMG('Wands12.jpg'),
+    upright: ['에너지', '모험', '충동', '열정'],
+    reversed: ['충동성', '무모함', '지연', '좌절'],
+  },
+  {
+    name: '완드 여왕 (Queen of Wands)',
+    image: IMG('Wands13.jpg'),
+    upright: ['자신감', '결단력', '카리스마', '독립'],
+    reversed: ['질투', '불안', '요구 과다', '분노'],
+  },
+  {
+    name: '완드 왕 (King of Wands)',
+    image: IMG('Wands14.jpg'),
+    upright: ['리더십', '비전', '카리스마', '결단'],
+    reversed: ['독단', '충동', '무자비', '비전 부재'],
+  },
+
+  // ===== Cups (컵) =====
+  {
+    name: '컵 에이스 (Ace of Cups)',
+    image: IMG('Cups01.jpg'),
+    upright: ['새로운 감정', '사랑', '영성', '직관'],
+    reversed: ['감정 억압', '공허함', '차단', '슬픔'],
+  },
+  {
+    name: '컵 2 (Two of Cups)',
+    image: IMG('Cups02.jpg'),
+    upright: ['동반자', '연결', '조화', '상호 매력'],
+    reversed: ['불화', '단절', '오해', '불균형'],
+  },
+  {
+    name: '컵 3 (Three of Cups)',
+    image: IMG('Cups03.jpg'),
+    upright: ['축하', '우정', '모임', '기쁨'],
+    reversed: ['과잉', '고립', '험담', '소외'],
+  },
+  {
+    name: '컵 4 (Four of Cups)',
+    image: IMG('Cups04.jpg'),
+    upright: ['무관심', '사색', '권태', '재평가'],
+    reversed: ['새로운 시각', '변화 수용', '동기 회복', '각성'],
+  },
+  {
+    name: '컵 5 (Five of Cups)',
+    image: IMG('Cups05.jpg'),
+    upright: ['상실', '후회', '슬픔', '실망'],
+    reversed: ['수용', '회복', '용서', '나아감'],
+  },
+  {
+    name: '컵 6 (Six of Cups)',
+    image: IMG('Cups06.jpg'),
+    upright: ['향수', '추억', '순수', '재회'],
+    reversed: ['과거 집착', '미래로 나아가기', '성숙', '미련'],
+  },
+  {
+    name: '컵 7 (Seven of Cups)',
+    image: IMG('Cups07.jpg'),
+    upright: ['환상', '선택', '꿈', '상상'],
+    reversed: ['명료함', '결정', '현실 직시', '집중'],
+  },
+  {
+    name: '컵 8 (Eight of Cups)',
+    image: IMG('Cups08.jpg'),
+    upright: ['떠남', '환멸', '탐색', '버림'],
+    reversed: ['정체', '포기 두려움', '머무름', '미련'],
+  },
+  {
+    name: '컵 9 (Nine of Cups)',
+    image: IMG('Cups09.jpg'),
+    upright: ['만족', '행복', '충족', '소원 성취'],
+    reversed: ['불만족', '욕망', '공허', '과잉'],
+  },
+  {
+    name: '컵 10 (Ten of Cups)',
+    image: IMG('Cups10.jpg'),
+    upright: ['가족', '행복', '조화', '평화'],
+    reversed: ['가족 갈등', '부조화', '단절', '실망'],
+  },
+  {
+    name: '컵 시종 (Page of Cups)',
+    image: IMG('Cups11.jpg'),
+    upright: ['창의성', '감수성', '직관', '메시지'],
+    reversed: ['감정 미숙', '차단', '예술적 막힘', '변덕'],
+  },
+  {
+    name: '컵 기사 (Knight of Cups)',
+    image: IMG('Cups12.jpg'),
+    upright: ['로맨스', '매력', '이상', '제안'],
+    reversed: ['변덕', '비현실', '실망', '기만'],
+  },
+  {
+    name: '컵 여왕 (Queen of Cups)',
+    image: IMG('Cups13.jpg'),
+    upright: ['공감', '양육', '직관', '자비'],
+    reversed: ['감정적', '의존', '경계 부족', '불안정'],
+  },
+  {
+    name: '컵 왕 (King of Cups)',
+    image: IMG('Cups14.jpg'),
+    upright: ['감정 균형', '자비', '외교', '지혜'],
+    reversed: ['감정 조작', '폭발', '변덕', '냉정함'],
+  },
+
+  // ===== Swords (소드) =====
+  {
+    name: '소드 에이스 (Ace of Swords)',
+    image: IMG('Swords01.jpg'),
+    upright: ['명료함', '돌파구', '진실', '통찰'],
+    reversed: ['혼란', '잘못된 정보', '재앙', '폭력'],
+  },
+  {
+    name: '소드 2 (Two of Swords)',
+    image: IMG('Swords02.jpg'),
+    upright: ['결정 보류', '균형', '교착', '회피'],
+    reversed: ['혼란', '정보 과부하', '결정', '진실 직면'],
+  },
+  {
+    name: '소드 3 (Three of Swords)',
+    image: IMG('Swords03.jpg'),
+    upright: ['슬픔', '상심', '배신', '아픔'],
+    reversed: ['회복', '치유', '용서', '극복'],
+  },
+  {
+    name: '소드 4 (Four of Swords)',
+    image: IMG('Swords04.jpg'),
+    upright: ['휴식', '회복', '명상', '재충전'],
+    reversed: ['소진', '무리', '불안', '깨어남'],
+  },
+  {
+    name: '소드 5 (Five of Swords)',
+    image: IMG('Swords05.jpg'),
+    upright: ['갈등', '패배', '손실', '비열함'],
+    reversed: ['화해', '갈등 해소', '용서', '후회'],
+  },
+  {
+    name: '소드 6 (Six of Swords)',
+    image: IMG('Swords06.jpg'),
+    upright: ['전환', '이동', '회복', '평온'],
+    reversed: ['정체', '떠나기 거부', '저항', '미해결'],
+  },
+  {
+    name: '소드 7 (Seven of Swords)',
+    image: IMG('Swords07.jpg'),
+    upright: ['속임수', '전략', '회피', '독자 행동'],
+    reversed: ['자백', '정직', '책임', '양심'],
+  },
+  {
+    name: '소드 8 (Eight of Swords)',
+    image: IMG('Swords08.jpg'),
+    upright: ['제한', '무력감', '갇힘', '자기 제약'],
+    reversed: ['해방', '자유', '자각', '새로운 시각'],
+  },
+  {
+    name: '소드 9 (Nine of Swords)',
+    image: IMG('Swords09.jpg'),
+    upright: ['불안', '악몽', '걱정', '죄책감'],
+    reversed: ['희망', '회복', '평화', '극복'],
+  },
+  {
+    name: '소드 10 (Ten of Swords)',
+    image: IMG('Swords10.jpg'),
+    upright: ['배신', '끝', '최악', '바닥'],
+    reversed: ['회복', '재생', '끝의 시작', '저항'],
+  },
+  {
+    name: '소드 시종 (Page of Swords)',
+    image: IMG('Swords11.jpg'),
+    upright: ['호기심', '정신력', '경계', '소통'],
+    reversed: ['험담', '냉소', '비밀', '경솔함'],
+  },
+  {
+    name: '소드 기사 (Knight of Swords)',
+    image: IMG('Swords12.jpg'),
+    upright: ['야망', '행동', '추진력', '용기'],
+    reversed: ['무모', '충동', '공격성', '성급함'],
+  },
+  {
+    name: '소드 여왕 (Queen of Swords)',
+    image: IMG('Swords13.jpg'),
+    upright: ['독립', '명료함', '직설', '지혜'],
+    reversed: ['차가움', '비판적', '냉소', '고립'],
+  },
+  {
+    name: '소드 왕 (King of Swords)',
+    image: IMG('Swords14.jpg'),
+    upright: ['지적 권위', '진실', '권력', '판단력'],
+    reversed: ['폭정', '조작', '냉혹함', '오용'],
+  },
+
+  // ===== Pentacles (펜타클) =====
+  {
+    name: '펜타클 에이스 (Ace of Pentacles)',
+    image: IMG('Pents01.jpg'),
+    upright: ['새로운 기회', '번영', '시작', '잠재력'],
+    reversed: ['기회 상실', '욕심', '불안정', '나쁜 투자'],
+  },
+  {
+    name: '펜타클 2 (Two of Pentacles)',
+    image: IMG('Pents02.jpg'),
+    upright: ['균형', '적응', '우선순위', '유연성'],
+    reversed: ['불균형', '압도', '혼란', '과부하'],
+  },
+  {
+    name: '펜타클 3 (Three of Pentacles)',
+    image: IMG('Pents03.jpg'),
+    upright: ['팀워크', '기술', '협업', '인정'],
+    reversed: ['갈등', '무능', '협력 부족', '게으름'],
+  },
+  {
+    name: '펜타클 4 (Four of Pentacles)',
+    image: IMG('Pents04.jpg'),
+    upright: ['안정', '통제', '보존', '소유'],
+    reversed: ['인색', '집착', '상실 두려움', '관대함'],
+  },
+  {
+    name: '펜타클 5 (Five of Pentacles)',
+    image: IMG('Pents05.jpg'),
+    upright: ['어려움', '고립', '결핍', '소외'],
+    reversed: ['회복', '도움', '개선', '신앙'],
+  },
+  {
+    name: '펜타클 6 (Six of Pentacles)',
+    image: IMG('Pents06.jpg'),
+    upright: ['관대함', '나눔', '공정', '주고받음'],
+    reversed: ['불공정', '부채', '이기심', '의존'],
+  },
+  {
+    name: '펜타클 7 (Seven of Pentacles)',
+    image: IMG('Pents07.jpg'),
+    upright: ['인내', '투자', '평가', '장기적 시각'],
+    reversed: ['조급함', '노력 부족', '불확실', '실망'],
+  },
+  {
+    name: '펜타클 8 (Eight of Pentacles)',
+    image: IMG('Pents08.jpg'),
+    upright: ['장인 정신', '헌신', '숙련', '집중'],
+    reversed: ['완벽주의', '무관심', '저급한 작업', '게으름'],
+  },
+  {
+    name: '펜타클 9 (Nine of Pentacles)',
+    image: IMG('Pents09.jpg'),
+    upright: ['풍요', '자립', '사치', '성취'],
+    reversed: ['과시', '의존', '재정 손실', '천박함'],
+  },
+  {
+    name: '펜타클 10 (Ten of Pentacles)',
+    image: IMG('Pents10.jpg'),
+    upright: ['부', '유산', '가족', '안정'],
+    reversed: ['재정 손실', '가족 갈등', '단절', '낭비'],
+  },
+  {
+    name: '펜타클 시종 (Page of Pentacles)',
+    image: IMG('Pents11.jpg'),
+    upright: ['새로운 시작', '학습', '야망', '기회'],
+    reversed: ['게으름', '비현실적', '학습 부족', '미루기'],
+  },
+  {
+    name: '펜타클 기사 (Knight of Pentacles)',
+    image: IMG('Pents12.jpg'),
+    upright: ['근면', '끈기', '책임', '신뢰'],
+    reversed: ['지루함', '정체', '게으름', '완고함'],
+  },
+  {
+    name: '펜타클 여왕 (Queen of Pentacles)',
+    image: IMG('Pents13.jpg'),
+    upright: ['실용성', '양육', '풍요', '안정'],
+    reversed: ['일과 삶 불균형', '의존', '자기방치', '불안정'],
+  },
+  {
+    name: '펜타클 왕 (King of Pentacles)',
+    image: IMG('Pents14.jpg'),
+    upright: ['재정 성공', '안정', '리더십', '관대함'],
+    reversed: ['탐욕', '물질주의', '독선', '부패'],
+  },
+];

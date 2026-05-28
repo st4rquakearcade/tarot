@@ -1,0 +1,53 @@
+# 타로 카드 (Tarot)
+
+라이더 웨이트 타로 카드 78장 중 원하는 수만큼 뽑아볼 수 있는 정적 웹앱입니다.
+
+## ✨ 기능
+
+- 1~10장 사이로 카드 수 선택
+- 정방향만 / 양방향 선택
+- 카드 이미지에 마우스를 올리면 키워드 의미 표시 (블러 + 페이드 인 효과)
+- 추가로 다시 뽑기
+
+## 🎨 디자인
+
+| 항목   | 값        |
+| ------ | --------- |
+| 텍스트 | `#494953` |
+| 배경   | `#EDF2F6` |
+| 포인트 | `#6A7EFC` |
+
+## 🗂 파일 구조
+
+```
+.
+├── index.html      # 마크업
+├── styles.css      # 스타일
+├── cards.js        # 카드 78장 데이터
+└── app.js          # 앱 로직 (셔플, 렌더링)
+```
+
+ES 모듈을 사용하므로 별도 빌드 도구는 필요하지 않습니다.
+
+## 🚀 실행
+
+로컬에서는 ES 모듈 보안 정책 때문에 `file://`로 직접 열면 동작하지 않습니다. 간단한 정적 서버로 띄워주세요.
+
+```bash
+# 옵션 1: Python
+python3 -m http.server 8000
+
+# 옵션 2: Node (npx)
+npx serve .
+```
+
+`http://localhost:8000` 에서 확인할 수 있습니다.
+
+## 🌐 GitHub Pages 배포
+
+레포지토리 `Settings → Pages` 에서 브랜치를 `main`, 폴더를 `/ (root)`로 지정하면 그대로 배포됩니다.
+
+## 📷 이미지 출처
+
+[Wikimedia Commons — RWS Tarot deck](https://commons.wikimedia.org/wiki/Category:RWS_Tarot_deck)
+1909년 발행된 Rider-Waite-Smith 덱으로, 저작권이 만료된 퍼블릭 도메인입니다.

@@ -1,0 +1,349 @@
+/* ============================================
+   Tarot — Styles
+   ============================================ */
+
+:root {
+  --text: #494953;
+  --text-muted: rgba(73, 73, 83, 0.6);
+  --text-faint: rgba(73, 73, 83, 0.12);
+  --bg: #EDF2F6;
+  --surface: #FFFFFF;
+  --accent: #6A7EFC;
+  --accent-soft: rgba(106, 126, 252, 0.1);
+  --shadow-sm: 0 1px 2px rgba(73, 73, 83, 0.04);
+  --shadow-md: 0 4px 24px rgba(73, 73, 83, 0.08);
+  --shadow-lg: 0 8px 32px rgba(106, 126, 252, 0.18);
+  --radius: 12px;
+  --radius-lg: 16px;
+  --easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ============================================
+   Layout
+   ============================================ */
+
+main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.header__title {
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.5rem;
+}
+
+.header__subtitle {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ============================================
+   Options Panel
+   ============================================ */
+
+.options {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.75rem;
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-md);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.option__label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.option__input {
+  width: 72px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--text-faint);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: var(--bg);
+  text-align: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.option__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Segmented radio */
+.segmented {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 0.25rem;
+}
+
+.segmented input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented label {
+  cursor: pointer;
+  padding: 0.45rem 1rem;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.segmented label:has(input:checked) {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   Primary Button
+   ============================================ */
+
+.actions {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.85rem 2.5rem;
+  border-radius: 999px;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: transform 0.2s var(--easing), box-shadow 0.2s var(--easing);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-lg);
+}
+
+/* ============================================
+   Card Grid
+   ============================================ */
+
+.result {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  animation: cardEnter 0.55s var(--easing) backwards;
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card__image-wrap {
+  position: relative;
+  aspect-ratio: 1 / 1.7;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: filter 0.4s ease;
+}
+
+.card__image--reversed {
+  transform: rotate(180deg);
+}
+
+/* Hover meaning overlay */
+.card__meaning {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.78);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 1rem;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.card__image-wrap:hover .card__image,
+.card__image-wrap:focus-within .card__image {
+  filter: blur(5px);
+}
+
+.card__image-wrap:hover .card__meaning,
+.card__image-wrap:focus-within .card__meaning {
+  opacity: 1;
+}
+
+.card__keyword {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition-delay: calc(var(--i, 0) * 0.06s + 0.08s);
+}
+
+.card__image-wrap:hover .card__keyword,
+.card__image-wrap:focus-within .card__keyword {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Card info below image */
+.card__info {
+  padding: 0.85rem 0.75rem 1rem;
+  text-align: center;
+}
+
+.card__name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+  letter-spacing: -0.01em;
+}
+
+.card__direction {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.card__direction--reversed {
+  color: var(--accent);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+
+@media (max-width: 480px) {
+  main {
+    padding: 2.5rem 1rem 4rem;
+  }
+
+  .options {
+    padding: 1rem 1.25rem;
+    gap: 1.25rem;
+  }
+
+  .result {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+  }
+
+  .card__keyword {
+    font-size: 0.85rem;
+  }
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+
+.footer {
+  text-align: center;
+  margin-top: 4rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.footer a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--text-faint);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.footer a:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
