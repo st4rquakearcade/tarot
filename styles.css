@@ -576,9 +576,9 @@ main {
 .result--spread {
   display: block;
   position: relative;
-  aspect-ratio: 1 / 1;
   overflow: visible;
   border-radius: var(--radius);
+  margin: 0 auto;
 }
 
 .result--spread .card {

@@ -358,6 +358,7 @@ function drawCards() {
       return { card, isReversed, position: pos };
     });
 
+  lastDrawn = drawn;
   render(drawn, spread);
 
   if (spread) setCollapsed(true);
@@ -370,7 +371,62 @@ function drawCards() {
 
 function render(drawn, spread) {
   el.result.className = spread ? 'result result--spread' : 'result';
-  el.result.innerHTML = drawn.map(toCardHtml).join('');
+
+  if (spread && drawn.length) {
+    // 카드들이 실제 차지하는 영역(bounding box)에 맞춰 결과 영역 크기를 줄여 여백 제거
+    const { width: S } = getMatSize(); // 매트는 1:1이라 width=height=S
+    const halfW = cardW / 2;
+    const halfH = cardH / 2;
+
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+
+    drawn.forEach(d => {
+      const cx = (d.position.x / 100) * S;
+      const cy = (d.position.y / 100) * S;
+      left = Math.min(left, cx - halfW);
+      right = Math.max(right, cx + halfW);
+      top = Math.min(top, cy - halfH);
+      bottom = Math.max(bottom, cy + halfH);
+    });
+
+    const pad = 12;
+    left -= pad;
+    right += pad;
+    top -= pad;
+    bottom += pad;
+
+    const bw = right - left;
+    const bh = bottom - top;
+
+    // 카드 좌표를 bounding box 기준으로 다시 매핑
+    const remapped = drawn.map(d => {
+      const cx = (d.position.x / 100) * S;
+      const cy = (d.position.y / 100) * S;
+      return {
+        ...d,
+        position: {
+          ...d.position,
+          x: ((cx - left) / bw) * 100,
+          y: ((cy - top) / bh) * 100,
+        },
+      };
+    });
+
+    el.result.style.width = bw + 'px';
+    el.result.style.maxWidth = '100%';
+    el.result.style.aspectRatio = `${bw} / ${bh}`;
+    el.result.style.height = '';
+    el.result.innerHTML = remapped.map(toCardHtml).join('');
+  } else {
+    el.result.style.width = '';
+    el.result.style.maxWidth = '';
+    el.result.style.aspectRatio = '';
+    el.result.style.height = '';
+    el.result.innerHTML = drawn.map(toCardHtml).join('');
+  }
 }
 
 function toCardHtml({ card, isReversed, position }, index) {
