@@ -464,7 +464,7 @@ main {
       transparent 1px
     ),
     linear-gradient(to bottom, rgba(73, 73, 83, 0.08) 1px, transparent 1px);
-  background-size: 5% 5%;
+  background-size: 36px 36px;
   background-position: 0 0;
   border: 1.5px dashed var(--text-faint);
   border-radius: var(--radius);

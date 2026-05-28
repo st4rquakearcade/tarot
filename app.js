@@ -6,7 +6,7 @@ import { CARDS } from './cards.js';
 
 const MIN_COUNT = 1;
 const MAX_COUNT = CARDS.length; // 78 — 덱 크기가 자연 상한
-const SNAP = 5; // 그리드 스냅 단위 (%)
+const GRID_PX = 36; // 그리드 한 칸 크기 (정사각형, px)
 
 const el = {
   drawBtn: document.getElementById('draw-btn'),
@@ -25,7 +25,21 @@ let selectedIndex = -1; // 현재 선택된 마커 인덱스
 /* ---------- Helpers ---------- */
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-const snap = v => Math.round(v / SNAP) * SNAP;
+
+function getMatSize() {
+  const rect = el.spreadMat.getBoundingClientRect();
+  return {
+    width: rect.width || el.spreadMat.offsetWidth || 800,
+    height: rect.height || el.spreadMat.offsetHeight || 360,
+  };
+}
+
+// percent 값을 매트 크기 기준 GRID_PX 단위에 스냅한 후 다시 percent로 변환
+function snapPercent(percent, sizePx) {
+  const px = (percent / 100) * sizePx;
+  const snapped = Math.round(px / GRID_PX) * GRID_PX;
+  return clamp((snapped / sizePx) * 100, 0, 100);
+}
 
 function shuffle(array) {
   const arr = [...array];
@@ -51,9 +65,10 @@ const isSpreadMode = () => el.spreadToggle.checked;
 /* ---------- Spread Editor ---------- */
 
 function defaultPositions(count) {
+  const { width, height } = getMatSize();
   return Array.from({ length: count }, (_, i) => ({
-    x: snap((100 / (count + 1)) * (i + 1)),
-    y: 50,
+    x: snapPercent((100 / (count + 1)) * (i + 1), width),
+    y: snapPercent(50, height),
   }));
 }
 
@@ -127,8 +142,8 @@ function attachDrag(marker) {
       ((e.clientX - drag.offsetX - drag.matRect.left) / drag.matRect.width) * 100;
     const rawY =
       ((e.clientY - drag.offsetY - drag.matRect.top) / drag.matRect.height) * 100;
-    const x = clamp(snap(rawX), 0, 100);
-    const y = clamp(snap(rawY), 0, 100);
+    const x = snapPercent(rawX, drag.matRect.width);
+    const y = snapPercent(rawY, drag.matRect.height);
     positions[index] = { ...positions[index], x, y };
     marker.style.left = x + '%';
     marker.style.top = y + '%';
@@ -159,24 +174,27 @@ document.addEventListener('keydown', e => {
   const pos = positions[selectedIndex];
   if (!pos) return;
 
-  const step = e.shiftKey ? SNAP * 2 : SNAP; // 기본 1칸, Shift는 2칸
+  const cells = e.shiftKey ? 2 : 1; // 기본 1칸, Shift는 2칸
+  const { width, height } = getMatSize();
+  const dx = ((GRID_PX * cells) / width) * 100;
+  const dy = ((GRID_PX * cells) / height) * 100;
   let handled = false;
 
   switch (e.key) {
     case 'ArrowLeft':
-      pos.x = clamp(pos.x - step, 0, 100);
+      pos.x = snapPercent(pos.x - dx, width);
       handled = true;
       break;
     case 'ArrowRight':
-      pos.x = clamp(pos.x + step, 0, 100);
+      pos.x = snapPercent(pos.x + dx, width);
       handled = true;
       break;
     case 'ArrowUp':
-      pos.y = clamp(pos.y - step, 0, 100);
+      pos.y = snapPercent(pos.y - dy, height);
       handled = true;
       break;
     case 'ArrowDown':
-      pos.y = clamp(pos.y + step, 0, 100);
+      pos.y = snapPercent(pos.y + dy, height);
       handled = true;
       break;
     case 't':
