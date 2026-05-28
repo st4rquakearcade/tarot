@@ -46,6 +46,27 @@
             </label>
           </div>
         </div>
+
+        <label class="checkbox">
+          <input type="checkbox" id="spread-toggle" />
+          <span class="checkbox__box" aria-hidden="true"></span>
+          <span class="checkbox__label">스프레드 배치</span>
+        </label>
+      </section>
+
+      <section
+        class="spread-editor"
+        id="spread-editor"
+        hidden
+        aria-label="스프레드 편집기"
+      >
+        <div class="spread-editor__head">
+          <span class="spread-editor__hint">번호를 드래그해 카드 자리를 배치하세요</span>
+          <button class="spread-editor__reset" id="reset-spread" type="button">
+            초기화
+          </button>
+        </div>
+        <div class="spread-editor__mat" id="spread-mat"></div>
       </section>
 
       <div class="actions">

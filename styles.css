@@ -326,6 +326,199 @@ main {
 }
 
 /* ============================================
+   Checkbox (Spread Toggle)
+   ============================================ */
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.checkbox__box {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--text-faint);
+  border-radius: 5px;
+  background: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.checkbox__box::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.checkbox input:checked + .checkbox__box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.checkbox input:checked + .checkbox__box::after {
+  opacity: 1;
+}
+
+.checkbox input:focus-visible + .checkbox__box {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.checkbox__label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ============================================
+   Spread Editor
+   ============================================ */
+
+.spread-editor {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-md);
+  animation: fadeIn 0.3s var(--easing);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.spread-editor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  padding: 0 0.25rem;
+}
+
+.spread-editor__hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.spread-editor__reset {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.spread-editor__reset:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.spread-editor__mat {
+  position: relative;
+  background: var(--bg);
+  border: 1.5px dashed var(--text-faint);
+  border-radius: var(--radius);
+  height: 360px;
+  overflow: visible;
+}
+
+.spread-marker {
+  position: absolute;
+  width: 70px;
+  height: 119px; /* aspect 1 : 1.7 */
+  margin-left: -35px;
+  margin-top: -59.5px;
+  border: 2px dashed var(--accent);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.spread-marker:hover {
+  transform: scale(1.05);
+  background: rgba(106, 126, 252, 0.18);
+}
+
+.spread-marker.dragging {
+  cursor: grabbing;
+  transform: scale(1.08);
+  box-shadow: 0 8px 24px rgba(106, 126, 252, 0.35);
+  z-index: 100;
+}
+
+/* ============================================
+   Result — Spread Mode
+   ============================================ */
+
+.result--spread {
+  display: block;
+  position: relative;
+  height: 360px;
+  overflow: visible;
+}
+
+.result--spread .card {
+  position: absolute;
+  width: 110px;
+  margin-left: -55px;
+  margin-top: -93.5px; /* half of 187px image height */
+  animation: spreadCardEnter 0.55s var(--easing) backwards;
+}
+
+.result--spread .card__info {
+  padding: 0.5rem 0.4rem 0.55rem;
+}
+
+.result--spread .card__name {
+  font-size: 0.72rem;
+  margin-bottom: 0.1rem;
+}
+
+.result--spread .card__direction {
+  font-size: 0.65rem;
+}
+
+@keyframes spreadCardEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ============================================
    Footer
    ============================================ */
 
