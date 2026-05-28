@@ -411,9 +411,36 @@ main {
   padding: 0 0.25rem;
 }
 
-.spread-editor__hint {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+.spread-editor__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0.25rem 0.25rem;
+  border-radius: 6px;
+  transition: color 0.2s ease;
+}
+
+.spread-editor__toggle:hover {
+  color: var(--accent);
+}
+
+.spread-editor__caret {
+  font-size: 0.7rem;
+  transition: transform 0.25s var(--easing);
+}
+
+.spread-editor.collapsed .spread-editor__caret {
+  transform: rotate(-90deg);
+}
+
+.spread-editor.collapsed .spread-editor__body {
+  display: none;
 }
 
 .spread-editor__reset {
@@ -468,16 +495,16 @@ main {
   background-position: 0 0;
   border: 1.5px dashed var(--text-faint);
   border-radius: var(--radius);
-  height: 360px;
-  overflow: visible;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
 }
 
 .spread-marker {
   position: absolute;
-  width: 70px;
-  height: 119px; /* aspect 1 : 1.7 */
-  margin-left: -35px;
-  margin-top: -59.5px;
+  width: 110px;
+  height: 187px; /* 카드 이미지와 동일 (110 × 1.7) */
+  margin-left: -55px;
+  margin-top: -93.5px;
   border: 2px dashed var(--accent);
   background: var(--accent-soft);
   border-radius: 8px;
@@ -485,7 +512,7 @@ main {
   align-items: center;
   justify-content: center;
   color: var(--accent);
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 700;
   cursor: grab;
   user-select: none;
@@ -543,8 +570,9 @@ main {
 .result--spread {
   display: block;
   position: relative;
-  height: 360px;
-  overflow: visible;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--radius);
 }
 
 .result--spread .card {

@@ -8,6 +8,11 @@ const MIN_COUNT = 1;
 const MAX_COUNT = CARDS.length; // 78 — 덱 크기가 자연 상한
 const GRID_PX = 36; // 그리드 한 칸 크기 (정사각형, px)
 
+// 카드/마커 크기 (px) — 경계 클램프 계산에 사용
+const CARD_W = 110;
+const CARD_IMG_H = 187; // 110 × 1.7
+const CARD_INFO_H = 46; // 카드 하단 정보 영역 (스프레드 모드)
+
 const el = {
   drawBtn: document.getElementById('draw-btn'),
   count: document.getElementById('count'),
@@ -16,6 +21,7 @@ const el = {
   spreadEditor: document.getElementById('spread-editor'),
   spreadMat: document.getElementById('spread-mat'),
   resetSpread: document.getElementById('reset-spread'),
+  toggleSpread: document.getElementById('toggle-spread'),
 };
 
 let hasDrawn = false;
@@ -30,7 +36,18 @@ function getMatSize() {
   const rect = el.spreadMat.getBoundingClientRect();
   return {
     width: rect.width || el.spreadMat.offsetWidth || 800,
-    height: rect.height || el.spreadMat.offsetHeight || 360,
+    height: rect.height || el.spreadMat.offsetHeight || 800,
+  };
+}
+
+// 카드 전체(이미지 + 정보 영역)가 매트 밖으로 나가지 않도록 좌표를 제한
+function clampToBounds(x, y, width, height) {
+  const marginX = (CARD_W / 2 / width) * 100;
+  const marginTop = (CARD_IMG_H / 2 / height) * 100;
+  const marginBottom = ((CARD_IMG_H / 2 + CARD_INFO_H) / height) * 100;
+  return {
+    x: clamp(x, marginX, 100 - marginX),
+    y: clamp(y, marginTop, 100 - marginBottom),
   };
 }
 
@@ -38,7 +55,7 @@ function getMatSize() {
 function snapPercent(percent, sizePx) {
   const px = (percent / 100) * sizePx;
   const snapped = Math.round(px / GRID_PX) * GRID_PX;
-  return clamp((snapped / sizePx) * 100, 0, 100);
+  return (snapped / sizePx) * 100;
 }
 
 function shuffle(array) {
@@ -66,10 +83,10 @@ const isSpreadMode = () => el.spreadToggle.checked;
 
 function defaultPositions(count) {
   const { width, height } = getMatSize();
-  return Array.from({ length: count }, (_, i) => ({
-    x: snapPercent((100 / (count + 1)) * (i + 1), width),
-    y: snapPercent(50, height),
-  }));
+  return Array.from({ length: count }, (_, i) => {
+    const rawX = (100 / (count + 1)) * (i + 1);
+    return clampToBounds(rawX, 50, width, height);
+  });
 }
 
 function syncPositions(count) {
@@ -136,14 +153,14 @@ function attachDrag(marker) {
     marker.classList.add('dragging');
   });
 
+  // 드래그는 스냅 없이 자유 배치 (경계만 제한)
   marker.addEventListener('pointermove', e => {
     if (!drag) return;
     const rawX =
       ((e.clientX - drag.offsetX - drag.matRect.left) / drag.matRect.width) * 100;
     const rawY =
       ((e.clientY - drag.offsetY - drag.matRect.top) / drag.matRect.height) * 100;
-    const x = snapPercent(rawX, drag.matRect.width);
-    const y = snapPercent(rawY, drag.matRect.height);
+    const { x, y } = clampToBounds(rawX, rawY, drag.matRect.width, drag.matRect.height);
     positions[index] = { ...positions[index], x, y };
     marker.style.left = x + '%';
     marker.style.top = y + '%';
@@ -162,12 +179,26 @@ function attachDrag(marker) {
   marker.addEventListener('pointercancel', endDrag);
 }
 
+// 키보드 이동: 그리드에 스냅 + 경계 제한
+function moveSelected(dxCells, dyCells) {
+  const { width, height } = getMatSize();
+  const pos = positions[selectedIndex];
+  let nx = pos.x;
+  let ny = pos.y;
+
+  if (dxCells) nx = snapPercent(pos.x + dxCells * ((GRID_PX / width) * 100), width);
+  if (dyCells) ny = snapPercent(pos.y + dyCells * ((GRID_PX / height) * 100), height);
+
+  const bounded = clampToBounds(nx, ny, width, height);
+  pos.x = bounded.x;
+  pos.y = bounded.y;
+}
+
 /* ---------- Keyboard Shortcuts (Spread Mode) ---------- */
 
 document.addEventListener('keydown', e => {
-  // 스프레드 모드가 아니거나 선택된 마커가 없으면 무시
   if (!isSpreadMode() || selectedIndex < 0) return;
-  // 입력 필드 포커스 중에는 무시
+  if (el.spreadEditor.classList.contains('collapsed')) return;
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea') return;
 
@@ -175,26 +206,23 @@ document.addEventListener('keydown', e => {
   if (!pos) return;
 
   const cells = e.shiftKey ? 2 : 1; // 기본 1칸, Shift는 2칸
-  const { width, height } = getMatSize();
-  const dx = ((GRID_PX * cells) / width) * 100;
-  const dy = ((GRID_PX * cells) / height) * 100;
   let handled = false;
 
   switch (e.key) {
     case 'ArrowLeft':
-      pos.x = snapPercent(pos.x - dx, width);
+      moveSelected(-cells, 0);
       handled = true;
       break;
     case 'ArrowRight':
-      pos.x = snapPercent(pos.x + dx, width);
+      moveSelected(cells, 0);
       handled = true;
       break;
     case 'ArrowUp':
-      pos.y = snapPercent(pos.y - dy, height);
+      moveSelected(0, -cells);
       handled = true;
       break;
     case 'ArrowDown':
-      pos.y = snapPercent(pos.y + dy, height);
+      moveSelected(0, cells);
       handled = true;
       break;
     case 't':
@@ -210,6 +238,12 @@ document.addEventListener('keydown', e => {
     updateMarker(selectedIndex);
   }
 });
+
+/* ---------- Collapse Toggle ---------- */
+
+function setCollapsed(collapsed) {
+  el.spreadEditor.classList.toggle('collapsed', collapsed);
+}
 
 /* ---------- Drawing & Rendering ---------- */
 
@@ -235,6 +269,9 @@ function drawCards() {
     });
 
   render(drawn, spread);
+
+  // 카드를 뽑으면 편집기를 접는다
+  if (spread) setCollapsed(true);
 
   if (!hasDrawn) {
     el.drawBtn.textContent = '다시 뽑기';
@@ -287,12 +324,21 @@ el.count.addEventListener('change', () => {
 
 el.spreadToggle.addEventListener('change', () => {
   el.spreadEditor.hidden = !isSpreadMode();
-  if (isSpreadMode()) renderSpreadEditor();
+  if (isSpreadMode()) {
+    setCollapsed(false);
+    renderSpreadEditor();
+  }
 });
 
 el.resetSpread.addEventListener('click', () => {
   positions = defaultPositions(getCount());
   renderSpreadEditor();
+});
+
+el.toggleSpread.addEventListener('click', () => {
+  const willExpand = el.spreadEditor.classList.contains('collapsed');
+  setCollapsed(!willExpand);
+  if (willExpand) renderSpreadEditor(); // 펼칠 때 정확한 위치로 다시 그림
 });
 
 // 매트 바깥 클릭 시 마커 선택 해제
