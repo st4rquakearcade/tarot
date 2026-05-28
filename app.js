@@ -8,10 +8,12 @@ const MIN_COUNT = 1;
 const MAX_COUNT = CARDS.length; // 78 — 덱 크기가 자연 상한
 const GRID_PX = 36; // 그리드 한 칸 크기 (정사각형, px)
 
-// 카드/마커 크기 (px) — 경계 클램프 계산에 사용
-const CARD_W = 110;
-const CARD_IMG_H = 187; // 110 × 1.7
-const CARD_INFO_H = 46; // 카드 하단 정보 영역 (스프레드 모드)
+// 카드 크기 범위 (px) — 장수에 따라 이 사이에서 유동 조정
+const CARD_W_MAX = 56;
+const CARD_W_MIN = 28;
+const COUNT_LO = 4; // 이하면 최대 크기
+const COUNT_HI = 24; // 이상이면 최소 크기
+const CARD_RATIO = 1.7; // 세로 / 가로
 
 const el = {
   drawBtn: document.getElementById('draw-btn'),
@@ -27,6 +29,8 @@ const el = {
 let hasDrawn = false;
 let positions = []; // [{x, y, reversed?}] — 퍼센트 좌표
 let selectedIndex = -1; // 현재 선택된 마커 인덱스
+let cardW = CARD_W_MAX; // 현재 카드 너비 (px)
+let cardH = cardW * CARD_RATIO;
 
 /* ---------- Helpers ---------- */
 
@@ -40,14 +44,34 @@ function getMatSize() {
   };
 }
 
-// 카드 전체(이미지 + 정보 영역)가 매트 밖으로 나가지 않도록 좌표를 제한
+// 카드 수 + 매트 너비에 따라 카드 크기를 정하고 CSS 변수로 반영
+function applyCardSize() {
+  const count = getCount();
+  const { width } = getMatSize();
+
+  const t = clamp((count - COUNT_LO) / (COUNT_HI - COUNT_LO), 0, 1);
+  let w = CARD_W_MAX - t * (CARD_W_MAX - CARD_W_MIN);
+  w = clamp(Math.min(w, width / 6), CARD_W_MIN, CARD_W_MAX);
+
+  cardW = w;
+  cardH = w * CARD_RATIO;
+
+  // 작은 카드일수록 호버 확대 배율을 키워 가독성 확보
+  const hoverScale = clamp(130 / cardW, 1.5, 4.5);
+
+  [el.spreadMat, el.result].forEach(node => {
+    node.style.setProperty('--card-w', cardW + 'px');
+    node.style.setProperty('--hover-scale', hoverScale.toFixed(2));
+  });
+}
+
+// 카드가 매트 밖으로 나가지 않도록 좌표 제한 (이미지 박스 기준, 대칭)
 function clampToBounds(x, y, width, height) {
-  const marginX = (CARD_W / 2 / width) * 100;
-  const marginTop = (CARD_IMG_H / 2 / height) * 100;
-  const marginBottom = ((CARD_IMG_H / 2 + CARD_INFO_H) / height) * 100;
+  const mx = (cardW / 2 / width) * 100;
+  const my = (cardH / 2 / height) * 100;
   return {
-    x: clamp(x, marginX, 100 - marginX),
-    y: clamp(y, marginTop, 100 - marginBottom),
+    x: clamp(x, mx, 100 - mx),
+    y: clamp(y, my, 100 - my),
   };
 }
 
@@ -96,6 +120,7 @@ function syncPositions(count) {
 
 function renderSpreadEditor() {
   const count = getCount();
+  applyCardSize();
   syncPositions(count);
 
   el.spreadMat.innerHTML = positions
@@ -252,7 +277,10 @@ function drawCards() {
   const allowReversed = getDirectionMode() === 'both';
   const spread = isSpreadMode();
 
-  if (spread) syncPositions(count);
+  if (spread) {
+    applyCardSize();
+    syncPositions(count);
+  }
 
   const drawn = shuffle(CARDS)
     .slice(0, count)
@@ -285,6 +313,7 @@ function render(drawn, spread) {
 }
 
 function toCardHtml({ card, isReversed, position }, index) {
+  const spread = !!position;
   const keywords = isReversed ? card.reversed : card.upright;
   const directionText = isReversed ? '역방향' : '정방향';
   const imgClass = `card__image${isReversed ? ' card__image--reversed' : ''}`;
@@ -294,6 +323,20 @@ function toCardHtml({ card, isReversed, position }, index) {
     .map((kw, i) => `<span class="card__keyword" style="--i:${i}">${kw}</span>`)
     .join('');
 
+  // 스프레드 모드: 카드 아래 정보 영역을 없애고, 이름/방향을 호버 오버레이로 표시
+  const overlayName = spread
+    ? `<div class="card__meaning-name">${card.name}
+         <span class="card__meaning-dir${isReversed ? ' card__meaning-dir--rev' : ''}">${directionText}</span>
+       </div>`
+    : '';
+
+  const infoBlock = spread
+    ? ''
+    : `<div class="card__info">
+         <div class="card__name">${card.name}</div>
+         <div class="${dirClass}">${directionText}</div>
+       </div>`;
+
   const posStyle = position ? `left:${position.x}%; top:${position.y}%; ` : '';
   const style = `${posStyle}animation-delay:${index * 0.06}s`;
 
@@ -302,13 +345,11 @@ function toCardHtml({ card, isReversed, position }, index) {
       <div class="card__image-wrap" tabindex="0">
         <img src="${card.image}" alt="${card.name}" class="${imgClass}" loading="lazy" />
         <div class="card__meaning" aria-hidden="true">
+          ${overlayName}
           ${keywordHtml}
         </div>
       </div>
-      <div class="card__info">
-        <div class="card__name">${card.name}</div>
-        <div class="${dirClass}">${directionText}</div>
-      </div>
+      ${infoBlock}
     </article>
   `;
 }
@@ -349,4 +390,12 @@ document.addEventListener('pointerdown', e => {
   el.spreadMat
     .querySelectorAll('.spread-marker.selected')
     .forEach(m => m.classList.remove('selected'));
+});
+
+// 창 크기 변경 시 카드 크기 재계산
+let resizeTimer;
+window.addEventListener('resize', () => {
+  if (!isSpreadMode()) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(applyCardSize, 150);
 });
