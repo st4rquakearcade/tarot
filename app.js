@@ -323,10 +323,12 @@ function toCardHtml({ card, isReversed, position }, index) {
     .map((kw, i) => `<span class="card__keyword" style="--i:${i}">${kw}</span>`)
     .join('');
 
-  // 스프레드 모드: 카드 아래 정보 영역을 없애고, 이름/방향을 호버 오버레이로 표시
-  const overlayName = spread
-    ? `<div class="card__meaning-name">${card.name}
-         <span class="card__meaning-dir${isReversed ? ' card__meaning-dir--rev' : ''}">${directionText}</span>
+  // 스프레드 모드: 이름(한글)/방향을 이미지 위에 항상 표시, 호버 시 키워드만
+  const shortName = card.name.split(' (')[0];
+  const label = spread
+    ? `<div class="card__label">
+         <span class="card__label-name">${shortName}</span>
+         <span class="card__label-dir${isReversed ? ' card__label-dir--rev' : ''}">${directionText}</span>
        </div>`
     : '';
 
@@ -345,9 +347,9 @@ function toCardHtml({ card, isReversed, position }, index) {
       <div class="card__image-wrap" tabindex="0">
         <img src="${card.image}" alt="${card.name}" class="${imgClass}" loading="lazy" />
         <div class="card__meaning" aria-hidden="true">
-          ${overlayName}
           ${keywordHtml}
         </div>
+        ${label}
       </div>
       ${infoBlock}
     </article>

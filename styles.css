@@ -262,6 +262,12 @@ main {
   opacity: 1;
 }
 
+/* 스프레드 모드의 작은 카드는 오버레이 여백을 줄임 (호버 확대로 가독성 확보) */
+.result--spread .card__meaning {
+  padding: 0.3rem;
+  gap: 0.05rem;
+}
+
 .card__keyword {
   font-size: 0.95rem;
   font-weight: 500;
@@ -501,10 +507,10 @@ main {
 
 .spread-marker {
   position: absolute;
-  width: 110px;
-  height: 187px; /* 카드 이미지와 동일 (110 × 1.7) */
-  margin-left: -55px;
-  margin-top: -93.5px;
+  width: var(--card-w, 56px);
+  height: calc(var(--card-w, 56px) * 1.7);
+  margin-left: calc(var(--card-w, 56px) / -2);
+  margin-top: calc(var(--card-w, 56px) * -0.85);
   border: 2px dashed var(--accent);
   background: var(--accent-soft);
   border-radius: 8px;
@@ -512,7 +518,7 @@ main {
   align-items: center;
   justify-content: center;
   color: var(--accent);
-  font-size: 1.5rem;
+  font-size: calc(var(--card-w, 56px) * 0.42);
   font-weight: 700;
   cursor: grab;
   user-select: none;
@@ -546,9 +552,9 @@ main {
 
 .spread-marker__dir {
   position: absolute;
-  bottom: 5px;
-  right: 6px;
-  font-size: 0.85rem;
+  bottom: 4px;
+  right: 5px;
+  font-size: calc(var(--card-w, 56px) * 0.28);
   font-weight: 700;
   line-height: 1;
   opacity: 0;
@@ -571,29 +577,74 @@ main {
   display: block;
   position: relative;
   aspect-ratio: 1 / 1;
-  overflow: hidden;
+  overflow: visible;
   border-radius: var(--radius);
 }
 
 .result--spread .card {
   position: absolute;
-  width: 110px;
-  margin-left: -55px;
-  margin-top: -93.5px; /* half of 187px image height */
+  width: var(--card-w, 56px);
+  margin-left: calc(var(--card-w, 56px) / -2);
+  margin-top: calc(var(--card-w, 56px) * -0.85);
   animation: spreadCardEnter 0.55s var(--easing) backwards;
+  transition: transform 0.2s var(--easing), box-shadow 0.2s var(--easing);
 }
 
-.result--spread .card__info {
-  padding: 0.5rem 0.4rem 0.55rem;
+/* 작은 카드는 호버 시 확대해 내용을 읽을 수 있게 */
+.result--spread .card:hover,
+.result--spread .card:focus-within {
+  transform: scale(var(--hover-scale, 1.7));
+  box-shadow: 0 12px 32px rgba(73, 73, 83, 0.25);
+  z-index: 50;
 }
 
-.result--spread .card__name {
-  font-size: 0.72rem;
-  margin-bottom: 0.1rem;
+/* 스프레드 모드: 이미지 위에 항상 표시되는 이름/방향 라벨 */
+.card__label {
+  display: none;
 }
 
-.result--spread .card__direction {
-  font-size: 0.65rem;
+.result--spread .card__label {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.3em 0.25em;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.result--spread .card__label-name {
+  display: block;
+  font-size: clamp(0.4rem, calc(var(--card-w, 56px) * 0.155), 0.78rem);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result--spread .card__label-dir {
+  display: block;
+  margin-top: 0.1em;
+  font-size: clamp(0.34rem, calc(var(--card-w, 56px) * 0.13), 0.65rem);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.result--spread .card__label-dir--rev {
+  color: var(--accent);
+}
+
+/* 호버 시 키워드 오버레이가 라벨 위를 덮음 */
+.result--spread .card__meaning {
+  z-index: 3;
+}
+
+.result--spread .card__keyword {
+  font-size: clamp(0.42rem, calc(var(--card-w, 56px) * 0.15), 0.8rem);
 }
 
 @keyframes spreadCardEnter {
