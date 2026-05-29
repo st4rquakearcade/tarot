@@ -291,6 +291,28 @@ main {
   text-align: center;
 }
 
+.card__arcana {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  margin-bottom: 0.4rem;
+  line-height: 1.4;
+}
+
+.card__arcana--major {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.card__arcana--minor {
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--text-faint);
+}
+
 .card__name {
   font-size: 0.9rem;
   font-weight: 600;

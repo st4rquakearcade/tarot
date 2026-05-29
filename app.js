@@ -2,7 +2,13 @@
  * Tarot — App Logic
  */
 
-import { CARDS } from './cards.js';
+import { CARDS as _CARDS } from './cards.js';
+
+const MAJOR_COUNT = 22; // cards.js의 처음 22장이 메이저 아르카나
+const CARDS = _CARDS.map((c, i) => ({
+  ...c,
+  arcana: i < MAJOR_COUNT ? 'major' : 'minor',
+}));
 
 const MIN_COUNT = 1;
 const MAX_COUNT = CARDS.length;
@@ -121,13 +127,24 @@ function shuffle(array) {
 
 function getCount() {
   const value = parseInt(el.count.value, 10);
-  const safe = clamp(Number.isNaN(value) ? 3 : value, MIN_COUNT, MAX_COUNT);
+  const max = getPool().length;
+  const safe = clamp(Number.isNaN(value) ? 3 : value, MIN_COUNT, max);
   el.count.value = safe;
   return safe;
 }
 
 const getDirectionMode = () =>
   document.querySelector('input[name="direction"]:checked').value;
+
+const getArcanaMode = () =>
+  document.querySelector('input[name="arcana"]:checked').value;
+
+function getPool() {
+  const mode = getArcanaMode();
+  if (mode === 'major') return CARDS.slice(0, MAJOR_COUNT);
+  if (mode === 'minor') return CARDS.slice(MAJOR_COUNT);
+  return CARDS;
+}
 
 const isSpreadMode = () => el.spreadToggle.checked;
 
@@ -663,7 +680,7 @@ function drawCards() {
     syncPositions(count);
   }
 
-  const drawn = shuffle(CARDS)
+  const drawn = shuffle(getPool())
     .slice(0, count)
     .map((card, i) => {
       const pos = spread ? positions[i] : null;
@@ -756,6 +773,9 @@ function toCardHtml({ card, isReversed, position }, index) {
   const infoBlock = spread
     ? ''
     : `<div class="card__info">
+         <span class="card__arcana card__arcana--${card.arcana}">
+           ${card.arcana === 'major' ? '메이저' : '마이너'}
+         </span>
          <div class="card__name">${card.name}</div>
          <div class="${dirClass}">${directionText}</div>
        </div>`;
@@ -789,6 +809,16 @@ el.count.addEventListener('change', () => {
     history = []; future = [];
     renderSpreadEditor();
   }
+});
+
+document.querySelectorAll('input[name="arcana"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    getCount(); // 풀 변경에 따라 카드 수 클램프
+    if (isSpreadMode()) {
+      history = []; future = [];
+      renderSpreadEditor();
+    }
+  });
 });
 
 el.spreadToggle.addEventListener('change', () => {
