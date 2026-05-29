@@ -69,14 +69,36 @@
           </button>
         </div>
         <div class="spread-editor__body">
+          <div class="spread-editor__toolbar" role="toolbar" aria-label="스프레드 편집 도구">
+            <button class="qa-btn" id="qa-multi" type="button" title="여러 카드를 클릭/드래그로 선택">
+              <span class="qa-btn__icon" aria-hidden="true">⊞</span>다중 선택
+            </button>
+            <button class="qa-btn" id="qa-all" type="button" title="전체 선택 (Ctrl+A)">전체</button>
+            <button class="qa-btn" id="qa-clear" type="button" title="선택 해제">해제</button>
+            <span class="qa-divider" aria-hidden="true"></span>
+            <button class="qa-btn" id="qa-rotate" type="button" title="90° 회전 (R)">
+              <span class="qa-btn__icon" aria-hidden="true">↻</span>회전
+            </button>
+            <button class="qa-btn" id="qa-flip" type="button" title="정/역 전환 (T)">정/역</button>
+            <button class="qa-btn" id="qa-resize" type="button" title="크기 조정 모드 (Ctrl+T → 방향키)">
+              <span class="qa-btn__icon" aria-hidden="true">⇲</span>크기 조정
+            </button>
+            <span class="qa-divider" aria-hidden="true"></span>
+            <button class="qa-btn" id="qa-undo" type="button" title="실행 취소 (Ctrl+Z)">
+              <span class="qa-btn__icon" aria-hidden="true">↶</span>취소
+            </button>
+            <button class="qa-btn" id="qa-redo" type="button" title="다시 실행 (Ctrl+Shift+Z)">
+              <span class="qa-btn__icon" aria-hidden="true">↷</span>다시
+            </button>
+          </div>
           <div class="spread-editor__shortcuts">
-            빈 곳 드래그로 여러 장 선택 (<kbd>Shift</kbd> 추가 · <kbd>Ctrl</kbd> 토글) ·
-            <kbd>Ctrl</kbd>+<kbd>A</kbd> 전체 ·
-            <kbd>←↑→↓</kbd> 이동 ·
-            <kbd>R</kbd> 90° 회전 ·
+            단축키 ·
+            <kbd>드래그</kbd> 영역 선택 ·
+            <kbd>Shift</kbd>/<kbd>Ctrl</kbd>+클릭 추가·토글 ·
+            <kbd>R</kbd> 회전 ·
             <kbd>T</kbd> 정/역 ·
-            <kbd>Ctrl</kbd>+<kbd>T</kbd> 크기 조정 ·
-            <kbd>Ctrl</kbd>+<kbd>Z</kbd> 실행취소
+            <kbd>Ctrl</kbd>+<kbd>T</kbd> 크기 ·
+            <kbd>Ctrl</kbd>+<kbd>Z</kbd> 취소
           </div>
           <div class="spread-editor__mat" id="spread-mat"></div>
         </div>

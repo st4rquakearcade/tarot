@@ -32,13 +32,23 @@ const el = {
   spreadMat: document.getElementById('spread-mat'),
   resetSpread: document.getElementById('reset-spread'),
   toggleSpread: document.getElementById('toggle-spread'),
-  selectionRect: null, // renderSpreadEditor 후 갱신
+  selectionRect: null,
+  // 퀵 액션 버튼
+  qaMulti: document.getElementById('qa-multi'),
+  qaAll: document.getElementById('qa-all'),
+  qaClear: document.getElementById('qa-clear'),
+  qaRotate: document.getElementById('qa-rotate'),
+  qaFlip: document.getElementById('qa-flip'),
+  qaResize: document.getElementById('qa-resize'),
+  qaUndo: document.getElementById('qa-undo'),
+  qaRedo: document.getElementById('qa-redo'),
 };
 
 let hasDrawn = false;
 let positions = [];
 let selectedIndices = new Set();
 let resizeMode = false;
+let multiSelectMode = false; // 퀵 액션 다중 선택 모드
 let cardW = 56;
 let cardH = cardW * CARD_RATIO;
 let lastMatSize = { width: 800, height: 800 };
@@ -127,12 +137,14 @@ function clearSelection() {
   selectedIndices.clear();
   resizeMode = false;
   updateSelectionUI();
+  updateToolbarState();
 }
 
 function selectOne(idx) {
   selectedIndices = new Set([idx]);
   resizeMode = false;
   updateSelectionUI();
+  updateToolbarState();
 }
 
 function toggleSelect(idx) {
@@ -140,6 +152,7 @@ function toggleSelect(idx) {
   else selectedIndices.add(idx);
   if (!selectedIndices.size) resizeMode = false;
   updateSelectionUI();
+  updateToolbarState();
 }
 
 function updateSelectionUI() {
@@ -147,6 +160,23 @@ function updateSelectionUI() {
     m.classList.toggle('selected', selectedIndices.has(i));
     m.classList.toggle('resize-mode', resizeMode && selectedIndices.has(i));
   });
+}
+
+function updateToolbarState() {
+  const has = selectedIndices.size > 0;
+  [el.qaClear, el.qaRotate, el.qaFlip, el.qaResize].forEach(b => {
+    if (b) b.disabled = !has;
+  });
+  if (el.qaUndo) el.qaUndo.disabled = history.length === 0;
+  if (el.qaRedo) el.qaRedo.disabled = future.length === 0;
+  if (el.qaResize) el.qaResize.classList.toggle('active', resizeMode);
+  if (el.qaMulti) el.qaMulti.classList.toggle('active', multiSelectMode);
+}
+
+function setMultiSelectMode(on) {
+  multiSelectMode = on;
+  el.spreadEditor.classList.toggle('multi-select', on);
+  updateToolbarState();
 }
 
 /* ---------- Undo / Redo ---------- */
@@ -157,6 +187,7 @@ function pushHistory() {
   history.push(snapshot());
   if (history.length > HISTORY_LIMIT) history.shift();
   future = [];
+  updateToolbarState();
 }
 
 function undo() {
@@ -164,6 +195,7 @@ function undo() {
   future.push(snapshot());
   positions = history.pop();
   renderSpreadEditor();
+  updateToolbarState();
 }
 
 function redo() {
@@ -171,6 +203,7 @@ function redo() {
   history.push(snapshot());
   positions = future.pop();
   renderSpreadEditor();
+  updateToolbarState();
 }
 
 /* ---------- Spread Editor ---------- */
@@ -232,6 +265,7 @@ function renderSpreadEditor() {
   el.spreadMat.querySelectorAll('.spread-marker').forEach(attachMarker);
   selectedIndices.clear();
   resizeMode = false;
+  updateToolbarState();
 }
 
 function updateMarker(idx) {
@@ -259,6 +293,14 @@ function attachMarker(marker) {
   // ---- 위치 드래그 (그룹 이동) ----
   marker.addEventListener('pointerdown', e => {
     if (e.target.classList.contains('spread-marker__handle')) return;
+
+    // 다중 선택 모드: 마커 클릭은 토글, 드래그 동작 없음
+    if (multiSelectMode) {
+      e.preventDefault();
+      toggleSelect(index);
+      return;
+    }
+
     e.preventDefault();
     try { marker.setPointerCapture(e.pointerId); } catch (_) {}
 
@@ -270,7 +312,6 @@ function attachMarker(marker) {
       selectOne(index);
     }
 
-    // 선택에서 빠진 경우 드래그 시작 안 함
     if (!selectedIndices.has(index)) return;
 
     const matRect = el.spreadMat.getBoundingClientRect();
@@ -346,6 +387,7 @@ function attachMarker(marker) {
       history.push(drag.before);
       if (history.length > HISTORY_LIMIT) history.shift();
       future = [];
+      updateToolbarState();
     }
     drag = null;
     marker.classList.remove('dragging');
@@ -531,6 +573,7 @@ function scaleSelected(dir) {
 function setResizeMode(on) {
   resizeMode = on;
   updateSelectionUI();
+  updateToolbarState();
 }
 
 /* ---------- Keyboard ---------- */
@@ -768,6 +811,45 @@ el.toggleSpread.addEventListener('click', () => {
   setCollapsed(!willExpand);
   if (willExpand) renderSpreadEditor();
 });
+
+/* ---- Quick Action Toolbar ---- */
+
+el.qaMulti.addEventListener('click', () => setMultiSelectMode(!multiSelectMode));
+
+el.qaAll.addEventListener('click', () => {
+  selectedIndices = new Set(positions.map((_, i) => i));
+  updateSelectionUI();
+  updateToolbarState();
+});
+
+el.qaClear.addEventListener('click', () => {
+  clearSelection();
+});
+
+el.qaRotate.addEventListener('click', () => {
+  if (!selectedIndices.size) return;
+  pushHistory();
+  rotateSelected();
+  updateMany(selectedIndices);
+});
+
+el.qaFlip.addEventListener('click', () => {
+  if (!selectedIndices.size) return;
+  pushHistory();
+  toggleSelectedReversed();
+  updateMany(selectedIndices);
+});
+
+el.qaResize.addEventListener('click', () => {
+  if (!selectedIndices.size) return;
+  setResizeMode(!resizeMode);
+});
+
+el.qaUndo.addEventListener('click', undo);
+el.qaRedo.addEventListener('click', redo);
+
+// 초기 툴바 상태
+updateToolbarState();
 
 // 매트 바깥 클릭 시 선택 해제
 document.addEventListener('pointerdown', e => {
