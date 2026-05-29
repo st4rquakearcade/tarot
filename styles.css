@@ -523,8 +523,10 @@ main {
   cursor: grab;
   user-select: none;
   touch-action: none;
+  rotate: var(--rot, 0deg);
+  scale: var(--scale, 1);
   transition: transform 0.15s ease, box-shadow 0.15s ease,
-    background 0.15s ease, outline-color 0.15s ease;
+    background 0.15s ease, outline-color 0.15s ease, rotate 0.18s ease;
   outline: 2px solid transparent;
   outline-offset: 3px;
 }
@@ -569,6 +571,36 @@ main {
   border-style: solid;
 }
 
+/* 크기 조정 핸들: 선택된 마커의 우하단 모서리에만 표시 */
+.spread-marker__handle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(73, 73, 83, 0.25);
+}
+
+.spread-marker.selected .spread-marker__handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Ctrl+T 키보드 크기 조정 모드: 선택 외곽선을 강조 */
+.spread-marker.resize-mode {
+  outline-color: var(--accent);
+  outline-style: dashed;
+  outline-width: 3px;
+}
+
 /* ============================================
    Result — Spread Mode
    ============================================ */
@@ -586,8 +618,11 @@ main {
   width: var(--card-w, 56px);
   margin-left: calc(var(--card-w, 56px) / -2);
   margin-top: calc(var(--card-w, 56px) * -0.85);
+  rotate: var(--rot, 0deg);
+  scale: var(--scale, 1);
   animation: spreadCardEnter 0.55s var(--easing) backwards;
-  transition: transform 0.2s var(--easing), box-shadow 0.2s var(--easing);
+  transition: transform 0.2s var(--easing), box-shadow 0.2s var(--easing),
+    rotate 0.2s var(--easing);
 }
 
 /* 작은 카드는 호버 시 확대해 내용을 읽을 수 있게 */

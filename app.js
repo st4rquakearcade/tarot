@@ -5,17 +5,22 @@
 import { CARDS } from './cards.js';
 
 const MIN_COUNT = 1;
-const MAX_COUNT = CARDS.length; // 78 — 덱 크기가 자연 상한
-const GRID_PX = 36; // 그리드 한 칸 크기 (정사각형, px)
+const MAX_COUNT = CARDS.length;
+const GRID_PX = 36;
+const CARD_RATIO = 1.7;
 
-// 카드 크기: 매트 크기 대비 비율로 계산 (장수에 따라 유동)
-const CARD_F_MAX = 0.13; // 적은 장수일 때 매트 변의 비율
-const CARD_F_MIN = 0.05; // 많은 장수일 때
-const CARD_W_FLOOR = 34; // 최소 px
-const CARD_W_CEIL = 150; // 최대 px
-const COUNT_LO = 4; // 이하면 최대 크기
-const COUNT_HI = 24; // 이상이면 최소 크기
-const CARD_RATIO = 1.7; // 세로 / 가로
+// 카드 크기 (장수 + 매트 크기에 따라 유동)
+const CARD_F_MAX = 0.13;
+const CARD_F_MIN = 0.05;
+const CARD_W_FLOOR = 34;
+const CARD_W_CEIL = 150;
+const COUNT_LO = 4;
+const COUNT_HI = 24;
+
+// 개별 카드 크기 조절(Scale) 범위
+const SCALE_MIN = 0.4;
+const SCALE_MAX = 3;
+const SCALE_STEP = 0.1;
 
 const HISTORY_LIMIT = 50;
 
@@ -31,13 +36,15 @@ const el = {
 };
 
 let hasDrawn = false;
-let positions = []; // [{x, y, reversed?}] — 퍼센트 좌표
-let selectedIndex = -1; // 현재 선택된 마커 인덱스
-let cardW = 56; // 현재 카드 너비 (px)
+let positions = []; // [{x, y, reversed?, rotation?, scale?}]
+let selectedIndex = -1;
+let resizeMode = false; // Ctrl+T 키보드 크기 조정 모드
+let cardW = 56;
 let cardH = cardW * CARD_RATIO;
+let lastMatSize = { width: 800, height: 800 };
 
-let history = []; // undo 스택 (positions 스냅샷)
-let future = []; // redo 스택
+let history = [];
+let future = [];
 
 /* ---------- Helpers ---------- */
 
@@ -45,24 +52,22 @@ const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
 function getMatSize() {
   const rect = el.spreadMat.getBoundingClientRect();
-  return {
-    width: rect.width || el.spreadMat.offsetWidth || 800,
-    height: rect.height || el.spreadMat.offsetHeight || 800,
-  };
+  if (rect.width > 0 && rect.height > 0) {
+    lastMatSize = { width: rect.width, height: rect.height };
+  }
+  return lastMatSize;
 }
 
-// 카드 수 + 매트 크기에 따라 카드 크기를 정하고 CSS 변수로 반영
 function applyCardSize() {
   const count = getCount();
   const { width, height } = getMatSize();
-  const side = Math.min(width, height); // 매트는 1:1
+  const side = Math.min(width, height);
 
   const t = clamp((count - COUNT_LO) / (COUNT_HI - COUNT_LO), 0, 1);
   const factor = CARD_F_MAX - t * (CARD_F_MAX - CARD_F_MIN);
   cardW = clamp(side * factor, CARD_W_FLOOR, CARD_W_CEIL);
   cardH = cardW * CARD_RATIO;
 
-  // 작은 카드일수록 호버 확대 배율을 키워 가독성 확보
   const hoverScale = clamp(150 / cardW, 1.4, 4.5);
 
   [el.spreadMat, el.result].forEach(node => {
@@ -71,17 +76,26 @@ function applyCardSize() {
   });
 }
 
-// 카드가 매트 밖으로 나가지 않도록 좌표 제한 (이미지 박스 기준, 대칭)
-function clampToBounds(x, y, width, height) {
-  const mx = (cardW / 2 / width) * 100;
-  const my = (cardH / 2 / height) * 100;
+// 회전(90/270이면 가로·세로 swap) + 개별 scale을 반영한 카드 박스 크기 (px)
+function cardBox(pos) {
+  const s = (pos && pos.scale) || 1;
+  const rotated = pos && ((pos.rotation || 0) % 180) !== 0;
+  return {
+    w: (rotated ? cardH : cardW) * s,
+    h: (rotated ? cardW : cardH) * s,
+  };
+}
+
+function clampToBounds(x, y, width, height, pos) {
+  const box = cardBox(pos);
+  const mx = (box.w / 2 / width) * 100;
+  const my = (box.h / 2 / height) * 100;
   return {
     x: clamp(x, mx, 100 - mx),
     y: clamp(y, my, 100 - my),
   };
 }
 
-// percent 값을 매트 크기 기준 GRID_PX 단위에 스냅한 후 다시 percent로 변환
 function snapPercent(percent, sizePx) {
   const px = (percent / 100) * sizePx;
   const snapped = Math.round(px / GRID_PX) * GRID_PX;
@@ -123,14 +137,14 @@ function undo() {
   if (history.length === 0) return;
   future.push(snapshot());
   positions = history.pop();
-  renderSpreadEditor({ keepHistory: true });
+  renderSpreadEditor();
 }
 
 function redo() {
   if (future.length === 0) return;
   history.push(snapshot());
   positions = future.pop();
-  renderSpreadEditor({ keepHistory: true });
+  renderSpreadEditor();
 }
 
 /* ---------- Spread Editor ---------- */
@@ -138,17 +152,37 @@ function redo() {
 function defaultPositions(count) {
   const { width, height } = getMatSize();
   return Array.from({ length: count }, (_, i) => {
+    const base = { rotation: 0, scale: 1 };
     const rawX = (100 / (count + 1)) * (i + 1);
-    return clampToBounds(rawX, 50, width, height);
+    const p = clampToBounds(rawX, 50, width, height, base);
+    return { ...base, x: p.x, y: p.y };
   });
 }
 
 function syncPositions(count) {
   const defaults = defaultPositions(count);
-  positions = Array.from({ length: count }, (_, i) => positions[i] || defaults[i]);
+  positions = Array.from({ length: count }, (_, i) => {
+    const existing = positions[i];
+    if (!existing) return defaults[i];
+    // 필요 속성 보강
+    return {
+      rotation: 0,
+      scale: 1,
+      ...existing,
+    };
+  });
 }
 
-function renderSpreadEditor(opts = {}) {
+function markerStyle(pos) {
+  return [
+    `left:${pos.x}%`,
+    `top:${pos.y}%`,
+    `--rot:${pos.rotation || 0}deg`,
+    `--scale:${pos.scale || 1}`,
+  ].join('; ');
+}
+
+function renderSpreadEditor() {
   const count = getCount();
   applyCardSize();
   syncPositions(count);
@@ -159,24 +193,27 @@ function renderSpreadEditor(opts = {}) {
         <div
           class="spread-marker${pos.reversed ? ' reversed' : ''}"
           data-i="${i}"
-          style="left:${pos.x}%; top:${pos.y}%"
+          style="${markerStyle(pos)}"
           tabindex="0"
         >
           <span class="spread-marker__num">${i + 1}</span>
           <span class="spread-marker__dir" aria-hidden="true">↻</span>
+          <span class="spread-marker__handle" aria-hidden="true"></span>
         </div>
       `
     )
     .join('');
 
-  el.spreadMat.querySelectorAll('.spread-marker').forEach(attachDrag);
+  el.spreadMat.querySelectorAll('.spread-marker').forEach(attachMarker);
   selectedIndex = -1;
+  resizeMode = false;
 }
 
 function selectMarker(idx) {
   selectedIndex = idx;
   el.spreadMat.querySelectorAll('.spread-marker').forEach((m, i) => {
     m.classList.toggle('selected', i === idx);
+    if (i !== idx) m.classList.remove('resize-mode');
   });
 }
 
@@ -186,16 +223,23 @@ function updateMarker(idx) {
   const pos = positions[idx];
   marker.style.left = pos.x + '%';
   marker.style.top = pos.y + '%';
+  marker.style.setProperty('--rot', (pos.rotation || 0) + 'deg');
+  marker.style.setProperty('--scale', pos.scale || 1);
   marker.classList.toggle('reversed', !!pos.reversed);
 }
 
-function attachDrag(marker) {
+function attachMarker(marker) {
   const index = parseInt(marker.dataset.i, 10);
-  let drag = null;
+  if (Number.isNaN(index)) return;
 
+  let drag = null;
+  let resize = null;
+
+  // 위치 드래그
   marker.addEventListener('pointerdown', e => {
+    if (e.target.classList.contains('spread-marker__handle')) return;
     e.preventDefault();
-    marker.setPointerCapture(e.pointerId);
+    try { marker.setPointerCapture(e.pointerId); } catch (_) {}
     selectMarker(index);
 
     const matRect = el.spreadMat.getBoundingClientRect();
@@ -210,7 +254,6 @@ function attachDrag(marker) {
     marker.classList.add('dragging');
   });
 
-  // 드래그는 기본 그리드 스냅, Alt를 누르면 자유 배치
   marker.addEventListener('pointermove', e => {
     if (!drag) return;
     const rawX =
@@ -224,7 +267,7 @@ function attachDrag(marker) {
       x = snapPercent(rawX, drag.matRect.width);
       y = snapPercent(rawY, drag.matRect.height);
     }
-    const b = clampToBounds(x, y, drag.matRect.width, drag.matRect.height);
+    const b = clampToBounds(x, y, drag.matRect.width, drag.matRect.height, positions[index]);
 
     if (b.x !== positions[index].x || b.y !== positions[index].y) drag.moved = true;
     positions[index] = { ...positions[index], x: b.x, y: b.y };
@@ -241,16 +284,56 @@ function attachDrag(marker) {
     }
     drag = null;
     marker.classList.remove('dragging');
-    try {
-      marker.releasePointerCapture(e.pointerId);
-    } catch (_) {}
+    try { marker.releasePointerCapture(e.pointerId); } catch (_) {}
   };
 
   marker.addEventListener('pointerup', endDrag);
   marker.addEventListener('pointercancel', endDrag);
+
+  // 크기 조정 핸들 (있으면)
+  const handle = marker.querySelector('.spread-marker__handle');
+  if (!handle) return;
+
+  handle.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    selectMarker(index);
+
+    const rect = marker.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    resize = {
+      cx,
+      cy,
+      startDist: Math.max(Math.hypot(e.clientX - cx, e.clientY - cy), 1),
+      startScale: positions[index].scale || 1,
+    };
+    pushHistory();
+  });
+
+  handle.addEventListener('pointermove', e => {
+    if (!resize) return;
+    const dist = Math.hypot(e.clientX - resize.cx, e.clientY - resize.cy);
+    const scale = clamp(
+      resize.startScale * (dist / resize.startDist),
+      SCALE_MIN,
+      SCALE_MAX
+    );
+    positions[index].scale = scale;
+    marker.style.setProperty('--scale', scale.toFixed(2));
+  });
+
+  const endResize = e => {
+    if (!resize) return;
+    resize = null;
+    try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+
+  handle.addEventListener('pointerup', endResize);
+  handle.addEventListener('pointercancel', endResize);
 }
 
-// 키보드 이동: 그리드에 스냅 + 경계 제한
 function moveSelected(dxCells, dyCells) {
   const { width, height } = getMatSize();
   const pos = positions[selectedIndex];
@@ -260,12 +343,19 @@ function moveSelected(dxCells, dyCells) {
   if (dxCells) nx = snapPercent(pos.x + dxCells * ((GRID_PX / width) * 100), width);
   if (dyCells) ny = snapPercent(pos.y + dyCells * ((GRID_PX / height) * 100), height);
 
-  const bounded = clampToBounds(nx, ny, width, height);
+  const bounded = clampToBounds(nx, ny, width, height, pos);
   pos.x = bounded.x;
   pos.y = bounded.y;
 }
 
-/* ---------- Keyboard Shortcuts (Spread Mode) ---------- */
+function setResizeMode(on) {
+  resizeMode = on;
+  el.spreadMat
+    .querySelectorAll('.spread-marker')
+    .forEach((m, i) => m.classList.toggle('resize-mode', on && i === selectedIndex));
+}
+
+/* ---------- Keyboard ---------- */
 
 document.addEventListener('keydown', e => {
   if (!isSpreadMode()) return;
@@ -273,11 +363,10 @@ document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea') return;
 
-  // 실행 취소 / 다시 실행 (선택 여부 무관)
+  // 실행 취소 / 다시 실행
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
     e.preventDefault();
-    if (e.shiftKey) redo();
-    else undo();
+    if (e.shiftKey) redo(); else undo();
     return;
   }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
@@ -286,40 +375,48 @@ document.addEventListener('keydown', e => {
     return;
   }
 
+  // Ctrl+T : 크기 조정 모드 토글 (선택된 마커가 있을 때)
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
+    e.preventDefault();
+    if (selectedIndex >= 0) setResizeMode(!resizeMode);
+    return;
+  }
+
   if (selectedIndex < 0) return;
   const pos = positions[selectedIndex];
   if (!pos) return;
 
-  const cells = e.shiftKey ? 2 : 1; // 기본 1칸, Shift는 2칸
   let handled = false;
 
-  switch (e.key) {
-    case 'ArrowLeft':
-      pushHistory();
-      moveSelected(-cells, 0);
-      handled = true;
-      break;
-    case 'ArrowRight':
-      pushHistory();
-      moveSelected(cells, 0);
-      handled = true;
-      break;
-    case 'ArrowUp':
-      pushHistory();
-      moveSelected(0, -cells);
-      handled = true;
-      break;
-    case 'ArrowDown':
-      pushHistory();
-      moveSelected(0, cells);
-      handled = true;
-      break;
-    case 't':
-    case 'T':
-      pushHistory();
-      pos.reversed = !pos.reversed;
-      handled = true;
-      break;
+  if (e.key === 'Escape' && resizeMode) {
+    setResizeMode(false);
+    handled = true;
+  } else if (
+    e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+    e.key === 'ArrowUp' || e.key === 'ArrowDown'
+  ) {
+    pushHistory();
+    if (resizeMode) {
+      // 크기 조정 모드: ↑/→ 키우기, ↓/← 줄이기
+      const dir = (e.key === 'ArrowUp' || e.key === 'ArrowRight') ? 1 : -1;
+      pos.scale = clamp((pos.scale || 1) + dir * SCALE_STEP, SCALE_MIN, SCALE_MAX);
+    } else {
+      const cells = e.shiftKey ? 2 : 1;
+      if (e.key === 'ArrowLeft') moveSelected(-cells, 0);
+      else if (e.key === 'ArrowRight') moveSelected(cells, 0);
+      else if (e.key === 'ArrowUp') moveSelected(0, -cells);
+      else moveSelected(0, cells);
+    }
+    handled = true;
+  } else if (e.key === 'r' || e.key === 'R') {
+    pushHistory();
+    pos.rotation = ((pos.rotation || 0) + 90) % 360;
+    handled = true;
+  } else if (e.key === 't' || e.key === 'T') {
+    // 방향(정/역) 전환 (Ctrl 없는 T)
+    pushHistory();
+    pos.reversed = !pos.reversed;
+    handled = true;
   }
 
   if (handled) {
@@ -330,8 +427,8 @@ document.addEventListener('keydown', e => {
 
 /* ---------- Collapse Toggle ---------- */
 
-function setCollapsed(collapsed) {
-  el.spreadEditor.classList.toggle('collapsed', collapsed);
+function setCollapsed(c) {
+  el.spreadEditor.classList.toggle('collapsed', c);
 }
 
 /* ---------- Drawing & Rendering ---------- */
@@ -354,11 +451,9 @@ function drawCards() {
         pos && pos.reversed === true
           ? true
           : allowReversed && Math.random() < 0.5;
-
       return { card, isReversed, position: pos };
     });
 
-  lastDrawn = drawn;
   render(drawn, spread);
 
   if (spread) setCollapsed(true);
@@ -372,61 +467,52 @@ function drawCards() {
 function render(drawn, spread) {
   el.result.className = spread ? 'result result--spread' : 'result';
 
-  if (spread && drawn.length) {
-    // 카드들이 실제 차지하는 영역(bounding box)에 맞춰 결과 영역 크기를 줄여 여백 제거
-    const { width: S } = getMatSize(); // 매트는 1:1이라 width=height=S
-    const halfW = cardW / 2;
-    const halfH = cardH / 2;
-
-    let left = Infinity;
-    let right = -Infinity;
-    let top = Infinity;
-    let bottom = -Infinity;
-
-    drawn.forEach(d => {
-      const cx = (d.position.x / 100) * S;
-      const cy = (d.position.y / 100) * S;
-      left = Math.min(left, cx - halfW);
-      right = Math.max(right, cx + halfW);
-      top = Math.min(top, cy - halfH);
-      bottom = Math.max(bottom, cy + halfH);
-    });
-
-    const pad = 12;
-    left -= pad;
-    right += pad;
-    top -= pad;
-    bottom += pad;
-
-    const bw = right - left;
-    const bh = bottom - top;
-
-    // 카드 좌표를 bounding box 기준으로 다시 매핑
-    const remapped = drawn.map(d => {
-      const cx = (d.position.x / 100) * S;
-      const cy = (d.position.y / 100) * S;
-      return {
-        ...d,
-        position: {
-          ...d.position,
-          x: ((cx - left) / bw) * 100,
-          y: ((cy - top) / bh) * 100,
-        },
-      };
-    });
-
-    el.result.style.width = bw + 'px';
-    el.result.style.maxWidth = '100%';
-    el.result.style.aspectRatio = `${bw} / ${bh}`;
-    el.result.style.height = '';
-    el.result.innerHTML = remapped.map(toCardHtml).join('');
-  } else {
+  if (!(spread && drawn.length)) {
     el.result.style.width = '';
     el.result.style.maxWidth = '';
     el.result.style.aspectRatio = '';
     el.result.style.height = '';
     el.result.innerHTML = drawn.map(toCardHtml).join('');
+    return;
   }
+
+  // 카드들이 실제 차지하는 영역(bounding box)에 맞춰 결과 영역 크기 결정
+  const { width: S } = getMatSize();
+
+  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+  drawn.forEach(d => {
+    const box = cardBox(d.position);
+    const cx = (d.position.x / 100) * S;
+    const cy = (d.position.y / 100) * S;
+    left = Math.min(left, cx - box.w / 2);
+    right = Math.max(right, cx + box.w / 2);
+    top = Math.min(top, cy - box.h / 2);
+    bottom = Math.max(bottom, cy + box.h / 2);
+  });
+
+  const pad = 12;
+  left -= pad; right += pad; top -= pad; bottom += pad;
+  const bw = right - left;
+  const bh = bottom - top;
+
+  const remapped = drawn.map(d => {
+    const cx = (d.position.x / 100) * S;
+    const cy = (d.position.y / 100) * S;
+    return {
+      ...d,
+      position: {
+        ...d.position,
+        x: ((cx - left) / bw) * 100,
+        y: ((cy - top) / bh) * 100,
+      },
+    };
+  });
+
+  el.result.style.width = bw + 'px';
+  el.result.style.maxWidth = '100%';
+  el.result.style.aspectRatio = `${bw} / ${bh}`;
+  el.result.style.height = '';
+  el.result.innerHTML = remapped.map(toCardHtml).join('');
 }
 
 function toCardHtml({ card, isReversed, position }, index) {
@@ -440,7 +526,6 @@ function toCardHtml({ card, isReversed, position }, index) {
     .map((kw, i) => `<span class="card__keyword" style="--i:${i}">${kw}</span>`)
     .join('');
 
-  // 스프레드 모드: 이름(한글)/방향을 이미지 위에 항상 표시, 호버 시 키워드만
   const shortName = card.name.split(' (')[0];
   const label = spread
     ? `<div class="card__label">
@@ -456,7 +541,9 @@ function toCardHtml({ card, isReversed, position }, index) {
          <div class="${dirClass}">${directionText}</div>
        </div>`;
 
-  const posStyle = position ? `left:${position.x}%; top:${position.y}%; ` : '';
+  const posStyle = position
+    ? `left:${position.x}%; top:${position.y}%; --rot:${position.rotation || 0}deg; --scale:${position.scale || 1}; `
+    : '';
   const style = `${posStyle}animation-delay:${index * 0.06}s`;
 
   return `
@@ -480,8 +567,7 @@ el.drawBtn.addEventListener('click', drawCards);
 el.count.addEventListener('change', () => {
   getCount();
   if (isSpreadMode()) {
-    history = [];
-    future = [];
+    history = []; future = [];
     renderSpreadEditor();
   }
 });
@@ -489,8 +575,7 @@ el.count.addEventListener('change', () => {
 el.spreadToggle.addEventListener('change', () => {
   el.spreadEditor.hidden = !isSpreadMode();
   if (isSpreadMode()) {
-    history = [];
-    future = [];
+    history = []; future = [];
     setCollapsed(false);
     renderSpreadEditor();
   }
@@ -508,14 +593,15 @@ el.toggleSpread.addEventListener('click', () => {
   if (willExpand) renderSpreadEditor();
 });
 
-// 매트 바깥 클릭 시 마커 선택 해제
+// 매트 바깥 클릭 시 선택 해제
 document.addEventListener('pointerdown', e => {
   if (!isSpreadMode() || selectedIndex < 0) return;
   if (e.target.closest('.spread-marker')) return;
   selectedIndex = -1;
+  resizeMode = false;
   el.spreadMat
-    .querySelectorAll('.spread-marker.selected')
-    .forEach(m => m.classList.remove('selected'));
+    .querySelectorAll('.spread-marker.selected, .spread-marker.resize-mode')
+    .forEach(m => m.classList.remove('selected', 'resize-mode'));
 });
 
 // 창 크기 변경 시 카드 크기 재계산
