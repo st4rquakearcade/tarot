@@ -9,7 +9,6 @@ const MAX_COUNT = CARDS.length;
 const GRID_PX = 36;
 const CARD_RATIO = 1.7;
 
-// 카드 크기 (장수 + 매트 크기에 따라 유동)
 const CARD_F_MAX = 0.13;
 const CARD_F_MIN = 0.05;
 const CARD_W_FLOOR = 34;
@@ -17,12 +16,12 @@ const CARD_W_CEIL = 150;
 const COUNT_LO = 4;
 const COUNT_HI = 24;
 
-// 개별 카드 크기 조절(Scale) 범위
 const SCALE_MIN = 0.4;
 const SCALE_MAX = 3;
 const SCALE_STEP = 0.1;
 
 const HISTORY_LIMIT = 50;
+const DRAG_THRESHOLD_PCT = 0.5; // 매트 대비 % 단위 드래그 임계값
 
 const el = {
   drawBtn: document.getElementById('draw-btn'),
@@ -33,18 +32,21 @@ const el = {
   spreadMat: document.getElementById('spread-mat'),
   resetSpread: document.getElementById('reset-spread'),
   toggleSpread: document.getElementById('toggle-spread'),
+  selectionRect: null, // renderSpreadEditor 후 갱신
 };
 
 let hasDrawn = false;
-let positions = []; // [{x, y, reversed?, rotation?, scale?}]
-let selectedIndex = -1;
-let resizeMode = false; // Ctrl+T 키보드 크기 조정 모드
+let positions = [];
+let selectedIndices = new Set();
+let resizeMode = false;
 let cardW = 56;
 let cardH = cardW * CARD_RATIO;
 let lastMatSize = { width: 800, height: 800 };
 
 let history = [];
 let future = [];
+
+let selecting = null; // 선택 박스 드래그 상태
 
 /* ---------- Helpers ---------- */
 
@@ -76,7 +78,6 @@ function applyCardSize() {
   });
 }
 
-// 회전(90/270이면 가로·세로 swap) + 개별 scale을 반영한 카드 박스 크기 (px)
 function cardBox(pos) {
   const s = (pos && pos.scale) || 1;
   const rotated = pos && ((pos.rotation || 0) % 180) !== 0;
@@ -90,10 +91,7 @@ function clampToBounds(x, y, width, height, pos) {
   const box = cardBox(pos);
   const mx = (box.w / 2 / width) * 100;
   const my = (box.h / 2 / height) * 100;
-  return {
-    x: clamp(x, mx, 100 - mx),
-    y: clamp(y, my, 100 - my),
-  };
+  return { x: clamp(x, mx, 100 - mx), y: clamp(y, my, 100 - my) };
 }
 
 function snapPercent(percent, sizePx) {
@@ -123,6 +121,34 @@ const getDirectionMode = () =>
 
 const isSpreadMode = () => el.spreadToggle.checked;
 
+/* ---------- Selection ---------- */
+
+function clearSelection() {
+  selectedIndices.clear();
+  resizeMode = false;
+  updateSelectionUI();
+}
+
+function selectOne(idx) {
+  selectedIndices = new Set([idx]);
+  resizeMode = false;
+  updateSelectionUI();
+}
+
+function toggleSelect(idx) {
+  if (selectedIndices.has(idx)) selectedIndices.delete(idx);
+  else selectedIndices.add(idx);
+  if (!selectedIndices.size) resizeMode = false;
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  el.spreadMat.querySelectorAll('.spread-marker').forEach((m, i) => {
+    m.classList.toggle('selected', selectedIndices.has(i));
+    m.classList.toggle('resize-mode', resizeMode && selectedIndices.has(i));
+  });
+}
+
 /* ---------- Undo / Redo ---------- */
 
 const snapshot = () => positions.map(p => ({ ...p }));
@@ -134,14 +160,14 @@ function pushHistory() {
 }
 
 function undo() {
-  if (history.length === 0) return;
+  if (!history.length) return;
   future.push(snapshot());
   positions = history.pop();
   renderSpreadEditor();
 }
 
 function redo() {
-  if (future.length === 0) return;
+  if (!future.length) return;
   history.push(snapshot());
   positions = future.pop();
   renderSpreadEditor();
@@ -164,12 +190,7 @@ function syncPositions(count) {
   positions = Array.from({ length: count }, (_, i) => {
     const existing = positions[i];
     if (!existing) return defaults[i];
-    // 필요 속성 보강
-    return {
-      rotation: 0,
-      scale: 1,
-      ...existing,
-    };
+    return { rotation: 0, scale: 1, ...existing };
   });
 }
 
@@ -187,7 +208,7 @@ function renderSpreadEditor() {
   applyCardSize();
   syncPositions(count);
 
-  el.spreadMat.innerHTML = positions
+  const markersHtml = positions
     .map(
       (pos, i) => `
         <div
@@ -204,17 +225,13 @@ function renderSpreadEditor() {
     )
     .join('');
 
-  el.spreadMat.querySelectorAll('.spread-marker').forEach(attachMarker);
-  selectedIndex = -1;
-  resizeMode = false;
-}
+  el.spreadMat.innerHTML =
+    `<div class="selection-rect" id="selection-rect" hidden></div>` + markersHtml;
+  el.selectionRect = el.spreadMat.querySelector('#selection-rect');
 
-function selectMarker(idx) {
-  selectedIndex = idx;
-  el.spreadMat.querySelectorAll('.spread-marker').forEach((m, i) => {
-    m.classList.toggle('selected', i === idx);
-    if (i !== idx) m.classList.remove('resize-mode');
-  });
+  el.spreadMat.querySelectorAll('.spread-marker').forEach(attachMarker);
+  selectedIndices.clear();
+  resizeMode = false;
 }
 
 function updateMarker(idx) {
@@ -228,6 +245,10 @@ function updateMarker(idx) {
   marker.classList.toggle('reversed', !!pos.reversed);
 }
 
+function updateMany(indices) {
+  indices.forEach(i => updateMarker(i));
+}
+
 function attachMarker(marker) {
   const index = parseInt(marker.dataset.i, 10);
   if (Number.isNaN(index)) return;
@@ -235,44 +256,88 @@ function attachMarker(marker) {
   let drag = null;
   let resize = null;
 
-  // 위치 드래그
+  // ---- 위치 드래그 (그룹 이동) ----
   marker.addEventListener('pointerdown', e => {
     if (e.target.classList.contains('spread-marker__handle')) return;
     e.preventDefault();
     try { marker.setPointerCapture(e.pointerId); } catch (_) {}
-    selectMarker(index);
+
+    // 선택 갱신
+    const mod = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (mod) {
+      toggleSelect(index);
+    } else if (!selectedIndices.has(index)) {
+      selectOne(index);
+    }
+
+    // 선택에서 빠진 경우 드래그 시작 안 함
+    if (!selectedIndices.has(index)) return;
 
     const matRect = el.spreadMat.getBoundingClientRect();
     const markerRect = marker.getBoundingClientRect();
+
+    // 선택된 모든 마커의 시작 위치 저장
+    const startPositions = new Map();
+    selectedIndices.forEach(i => {
+      startPositions.set(i, { x: positions[i].x, y: positions[i].y });
+    });
+
     drag = {
       offsetX: e.clientX - (markerRect.left + markerRect.width / 2),
       offsetY: e.clientY - (markerRect.top + markerRect.height / 2),
       matRect,
       before: snapshot(),
       moved: false,
+      startPositions,
     };
     marker.classList.add('dragging');
   });
 
   marker.addEventListener('pointermove', e => {
     if (!drag) return;
+
+    // 잡은 마커의 목표 위치 (raw)
     const rawX =
       ((e.clientX - drag.offsetX - drag.matRect.left) / drag.matRect.width) * 100;
     const rawY =
       ((e.clientY - drag.offsetY - drag.matRect.top) / drag.matRect.height) * 100;
 
-    let x = rawX;
-    let y = rawY;
+    let targetX = rawX;
+    let targetY = rawY;
     if (!e.altKey) {
-      x = snapPercent(rawX, drag.matRect.width);
-      y = snapPercent(rawY, drag.matRect.height);
+      targetX = snapPercent(rawX, drag.matRect.width);
+      targetY = snapPercent(rawY, drag.matRect.height);
     }
-    const b = clampToBounds(x, y, drag.matRect.width, drag.matRect.height, positions[index]);
 
-    if (b.x !== positions[index].x || b.y !== positions[index].y) drag.moved = true;
-    positions[index] = { ...positions[index], x: b.x, y: b.y };
-    marker.style.left = b.x + '%';
-    marker.style.top = b.y + '%';
+    const startPos = drag.startPositions.get(index);
+    let dx = targetX - startPos.x;
+    let dy = targetY - startPos.y;
+
+    // 그룹 전체가 경계 안에 머무는 dx, dy로 제한 (모양 유지)
+    selectedIndices.forEach(i => {
+      const sp = drag.startPositions.get(i);
+      if (!sp) return;
+      const b = clampToBounds(
+        sp.x + dx, sp.y + dy,
+        drag.matRect.width, drag.matRect.height,
+        positions[i]
+      );
+      const possibleDx = b.x - sp.x;
+      const possibleDy = b.y - sp.y;
+      if (Math.abs(possibleDx) < Math.abs(dx)) dx = possibleDx;
+      if (Math.abs(possibleDy) < Math.abs(dy)) dy = possibleDy;
+    });
+
+    if (dx !== 0 || dy !== 0) drag.moved = true;
+
+    // 적용
+    selectedIndices.forEach(i => {
+      const sp = drag.startPositions.get(i);
+      if (!sp) return;
+      positions[i].x = sp.x + dx;
+      positions[i].y = sp.y + dy;
+      updateMarker(i);
+    });
   });
 
   const endDrag = e => {
@@ -290,7 +355,7 @@ function attachMarker(marker) {
   marker.addEventListener('pointerup', endDrag);
   marker.addEventListener('pointercancel', endDrag);
 
-  // 크기 조정 핸들 (있으면)
+  // ---- 크기 조정 핸들 (그룹 배율) ----
   const handle = marker.querySelector('.spread-marker__handle');
   if (!handle) return;
 
@@ -298,16 +363,22 @@ function attachMarker(marker) {
     e.preventDefault();
     e.stopPropagation();
     try { handle.setPointerCapture(e.pointerId); } catch (_) {}
-    selectMarker(index);
+
+    if (!selectedIndices.has(index)) selectOne(index);
 
     const rect = marker.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
+
+    const startScales = new Map();
+    selectedIndices.forEach(i => {
+      startScales.set(i, positions[i].scale || 1);
+    });
+
     resize = {
-      cx,
-      cy,
+      cx, cy,
       startDist: Math.max(Math.hypot(e.clientX - cx, e.clientY - cy), 1),
-      startScale: positions[index].scale || 1,
+      startScales,
     };
     pushHistory();
   });
@@ -315,13 +386,14 @@ function attachMarker(marker) {
   handle.addEventListener('pointermove', e => {
     if (!resize) return;
     const dist = Math.hypot(e.clientX - resize.cx, e.clientY - resize.cy);
-    const scale = clamp(
-      resize.startScale * (dist / resize.startDist),
-      SCALE_MIN,
-      SCALE_MAX
-    );
-    positions[index].scale = scale;
-    marker.style.setProperty('--scale', scale.toFixed(2));
+    const ratio = dist / resize.startDist;
+    selectedIndices.forEach(i => {
+      const start = resize.startScales.get(i);
+      if (start == null) return;
+      const next = clamp(start * ratio, SCALE_MIN, SCALE_MAX);
+      positions[i].scale = next;
+      updateMarker(i);
+    });
   });
 
   const endResize = e => {
@@ -334,25 +406,131 @@ function attachMarker(marker) {
   handle.addEventListener('pointercancel', endResize);
 }
 
-function moveSelected(dxCells, dyCells) {
+/* ---------- 매트 빈 영역: 영역 선택 박스 ---------- */
+
+el.spreadMat.addEventListener('pointerdown', e => {
+  if (e.target.closest('.spread-marker')) return;
+  if (!el.selectionRect) return;
+  e.preventDefault();
+  try { el.spreadMat.setPointerCapture(e.pointerId); } catch (_) {}
+
+  const rect = el.spreadMat.getBoundingClientRect();
+  const sx = ((e.clientX - rect.left) / rect.width) * 100;
+  const sy = ((e.clientY - rect.top) / rect.height) * 100;
+
+  selecting = {
+    rect,
+    sx, sy,
+    initial: new Set(selectedIndices),
+    shift: e.shiftKey,
+    ctrl: e.ctrlKey || e.metaKey,
+    moved: false,
+  };
+});
+
+el.spreadMat.addEventListener('pointermove', e => {
+  if (!selecting) return;
+  const cx = ((e.clientX - selecting.rect.left) / selecting.rect.width) * 100;
+  const cy = ((e.clientY - selecting.rect.top) / selecting.rect.height) * 100;
+
+  if (!selecting.moved) {
+    if (Math.abs(cx - selecting.sx) < DRAG_THRESHOLD_PCT &&
+        Math.abs(cy - selecting.sy) < DRAG_THRESHOLD_PCT) return;
+    selecting.moved = true;
+    el.selectionRect.hidden = false;
+  }
+
+  const left = Math.min(selecting.sx, cx);
+  const right = Math.max(selecting.sx, cx);
+  const top = Math.min(selecting.sy, cy);
+  const bottom = Math.max(selecting.sy, cy);
+
+  el.selectionRect.style.left = left + '%';
+  el.selectionRect.style.top = top + '%';
+  el.selectionRect.style.width = (right - left) + '%';
+  el.selectionRect.style.height = (bottom - top) + '%';
+
+  // 박스 안 마커들 (중심점 포함 기준)
+  const inBox = new Set();
+  positions.forEach((p, i) => {
+    if (p.x >= left && p.x <= right && p.y >= top && p.y <= bottom) inBox.add(i);
+  });
+
+  if (selecting.shift) {
+    selectedIndices = new Set([...selecting.initial, ...inBox]);
+  } else if (selecting.ctrl) {
+    const r = new Set(selecting.initial);
+    inBox.forEach(i => { if (r.has(i)) r.delete(i); else r.add(i); });
+    selectedIndices = r;
+  } else {
+    selectedIndices = inBox;
+  }
+  updateSelectionUI();
+});
+
+const endSelecting = e => {
+  if (!selecting) return;
+  if (!selecting.moved && !selecting.shift && !selecting.ctrl) {
+    clearSelection();
+  }
+  if (el.selectionRect) el.selectionRect.hidden = true;
+  selecting = null;
+  try { el.spreadMat.releasePointerCapture(e.pointerId); } catch (_) {}
+};
+el.spreadMat.addEventListener('pointerup', endSelecting);
+el.spreadMat.addEventListener('pointercancel', endSelecting);
+
+/* ---------- Group keyboard ops ---------- */
+
+function moveSelectedGroup(dxCells, dyCells) {
   const { width, height } = getMatSize();
-  const pos = positions[selectedIndex];
-  let nx = pos.x;
-  let ny = pos.y;
+  const dxPct = dxCells * ((GRID_PX / width) * 100);
+  const dyPct = dyCells * ((GRID_PX / height) * 100);
 
-  if (dxCells) nx = snapPercent(pos.x + dxCells * ((GRID_PX / width) * 100), width);
-  if (dyCells) ny = snapPercent(pos.y + dyCells * ((GRID_PX / height) * 100), height);
+  // 그룹 전체가 경계 안에 머무는 최대 이동량 계산
+  let dx = dxPct, dy = dyPct;
+  selectedIndices.forEach(i => {
+    const p = positions[i];
+    const target = clampToBounds(p.x + dx, p.y + dy, width, height, p);
+    const possibleDx = target.x - p.x;
+    const possibleDy = target.y - p.y;
+    if (Math.abs(possibleDx) < Math.abs(dx)) dx = possibleDx;
+    if (Math.abs(possibleDy) < Math.abs(dy)) dy = possibleDy;
+  });
 
-  const bounded = clampToBounds(nx, ny, width, height, pos);
-  pos.x = bounded.x;
-  pos.y = bounded.y;
+  selectedIndices.forEach(i => {
+    const p = positions[i];
+    // 스냅: 새 위치를 그리드에 다시 맞춤
+    const sx = snapPercent(p.x + dx, width);
+    const sy = snapPercent(p.y + dy, height);
+    const b = clampToBounds(sx, sy, width, height, p);
+    p.x = b.x;
+    p.y = b.y;
+  });
+}
+
+function rotateSelected() {
+  selectedIndices.forEach(i => {
+    positions[i].rotation = ((positions[i].rotation || 0) + 90) % 360;
+  });
+}
+
+function toggleSelectedReversed() {
+  selectedIndices.forEach(i => {
+    positions[i].reversed = !positions[i].reversed;
+  });
+}
+
+function scaleSelected(dir) {
+  selectedIndices.forEach(i => {
+    const s = (positions[i].scale || 1) + dir * SCALE_STEP;
+    positions[i].scale = clamp(s, SCALE_MIN, SCALE_MAX);
+  });
 }
 
 function setResizeMode(on) {
   resizeMode = on;
-  el.spreadMat
-    .querySelectorAll('.spread-marker')
-    .forEach((m, i) => m.classList.toggle('resize-mode', on && i === selectedIndex));
+  updateSelectionUI();
 }
 
 /* ---------- Keyboard ---------- */
@@ -363,7 +541,6 @@ document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea') return;
 
-  // 실행 취소 / 다시 실행
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
     e.preventDefault();
     if (e.shiftKey) redo(); else undo();
@@ -375,17 +552,13 @@ document.addEventListener('keydown', e => {
     return;
   }
 
-  // Ctrl+T : 크기 조정 모드 토글 (선택된 마커가 있을 때)
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') {
     e.preventDefault();
-    if (selectedIndex >= 0) setResizeMode(!resizeMode);
+    if (selectedIndices.size) setResizeMode(!resizeMode);
     return;
   }
 
-  if (selectedIndex < 0) return;
-  const pos = positions[selectedIndex];
-  if (!pos) return;
-
+  if (selectedIndices.size === 0) return;
   let handled = false;
 
   if (e.key === 'Escape' && resizeMode) {
@@ -397,35 +570,39 @@ document.addEventListener('keydown', e => {
   ) {
     pushHistory();
     if (resizeMode) {
-      // 크기 조정 모드: ↑/→ 키우기, ↓/← 줄이기
       const dir = (e.key === 'ArrowUp' || e.key === 'ArrowRight') ? 1 : -1;
-      pos.scale = clamp((pos.scale || 1) + dir * SCALE_STEP, SCALE_MIN, SCALE_MAX);
+      scaleSelected(dir);
     } else {
       const cells = e.shiftKey ? 2 : 1;
-      if (e.key === 'ArrowLeft') moveSelected(-cells, 0);
-      else if (e.key === 'ArrowRight') moveSelected(cells, 0);
-      else if (e.key === 'ArrowUp') moveSelected(0, -cells);
-      else moveSelected(0, cells);
+      if (e.key === 'ArrowLeft') moveSelectedGroup(-cells, 0);
+      else if (e.key === 'ArrowRight') moveSelectedGroup(cells, 0);
+      else if (e.key === 'ArrowUp') moveSelectedGroup(0, -cells);
+      else moveSelectedGroup(0, cells);
     }
     handled = true;
   } else if (e.key === 'r' || e.key === 'R') {
     pushHistory();
-    pos.rotation = ((pos.rotation || 0) + 90) % 360;
+    rotateSelected();
     handled = true;
   } else if (e.key === 't' || e.key === 'T') {
-    // 방향(정/역) 전환 (Ctrl 없는 T)
     pushHistory();
-    pos.reversed = !pos.reversed;
+    toggleSelectedReversed();
     handled = true;
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+    // Ctrl+A: 전체 선택
+    e.preventDefault();
+    selectedIndices = new Set(positions.map((_, i) => i));
+    updateSelectionUI();
+    return;
   }
 
   if (handled) {
     e.preventDefault();
-    updateMarker(selectedIndex);
+    updateMany(selectedIndices);
   }
 });
 
-/* ---------- Collapse Toggle ---------- */
+/* ---------- Collapse ---------- */
 
 function setCollapsed(c) {
   el.spreadEditor.classList.toggle('collapsed', c);
@@ -476,7 +653,6 @@ function render(drawn, spread) {
     return;
   }
 
-  // 카드들이 실제 차지하는 영역(bounding box)에 맞춰 결과 영역 크기 결정
   const { width: S } = getMatSize();
 
   let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
@@ -595,16 +771,13 @@ el.toggleSpread.addEventListener('click', () => {
 
 // 매트 바깥 클릭 시 선택 해제
 document.addEventListener('pointerdown', e => {
-  if (!isSpreadMode() || selectedIndex < 0) return;
+  if (!isSpreadMode()) return;
+  if (!selectedIndices.size) return;
   if (e.target.closest('.spread-marker')) return;
-  selectedIndex = -1;
-  resizeMode = false;
-  el.spreadMat
-    .querySelectorAll('.spread-marker.selected, .spread-marker.resize-mode')
-    .forEach(m => m.classList.remove('selected', 'resize-mode'));
+  if (e.target.closest('#spread-mat')) return; // 매트 안은 자체 핸들러가 처리
+  clearSelection();
 });
 
-// 창 크기 변경 시 카드 크기 재계산
 let resizeTimer;
 window.addEventListener('resize', () => {
   if (!isSpreadMode()) return;

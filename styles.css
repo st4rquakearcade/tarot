@@ -503,6 +503,8 @@ main {
   border-radius: var(--radius);
   aspect-ratio: 1 / 1;
   overflow: hidden;
+  cursor: crosshair;
+  touch-action: none;
 }
 
 .spread-marker {
@@ -599,6 +601,20 @@ main {
   outline-color: var(--accent);
   outline-style: dashed;
   outline-width: 3px;
+}
+
+/* 영역 선택 박스 */
+.selection-rect {
+  position: absolute;
+  background: rgba(106, 126, 252, 0.12);
+  border: 1.5px solid var(--accent);
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.selection-rect[hidden] {
+  display: none;
 }
 
 /* ============================================
